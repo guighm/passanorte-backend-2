@@ -1,0 +1,1 @@
+from passanorte_back.main import main

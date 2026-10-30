@@ -1,0 +1,20 @@
+[project]
+name = "passanorte-back"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Guilherme Moraes", email = "guighm@outlook.com.br" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard]>=0.162.0",
+]
+
+[project.scripts]
+passanorte-back = "passanorte_back:main"
+dev = "passanorte_back.dev:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
