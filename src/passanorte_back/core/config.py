@@ -27,7 +27,8 @@ class Settings(BaseSettings):
     """Configuration values loaded from the environment at startup.
 
     Required (no default): ``database_url``, ``jwt_secret``. With default:
-    ``jwt_ttl`` (3600 s), ``gps_tolerance_radius_m`` (100.0), ``city_name``
+    ``jwt_ttl`` (3600 s), ``jwt_refresh_ttl`` (604800 s), ``gps_tolerance_radius_m``
+    (100.0), ``city_name``
     and ``languages`` (from the location file), ``location_data_path``
     (``config/location.json``).
     """
@@ -41,6 +42,7 @@ class Settings(BaseSettings):
     database_url: str
     jwt_secret: str
     jwt_ttl: int = 3600
+    jwt_refresh_ttl: int = 604800
     gps_tolerance_radius_m: float = 100.0
     city_name: str | None = None
     languages: list[str] | None = Field(
@@ -57,7 +59,7 @@ class Settings(BaseSettings):
             raise ValueError(f"'{field}' cannot be empty or whitespace only")
         return value
 
-    @field_validator("jwt_ttl", "gps_tolerance_radius_m")
+    @field_validator("jwt_ttl", "jwt_refresh_ttl", "gps_tolerance_radius_m")
     @classmethod
     def _reject_non_positive(cls, value: int | float, info: ValidationInfo) -> int | float:
         field = getattr(info, "field_name", "field")

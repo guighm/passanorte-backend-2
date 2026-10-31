@@ -11,10 +11,16 @@ from collections.abc import Iterator
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine, make_url
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from passanorte_back.core.config import Settings, get_settings
+
+
+class Base(DeclarativeBase):
+    """Declarative base of the domain tables (each module owns its models
+    in its repositories layer; no table is shared across domains)."""
+
 
 # Short fixed timeout for the /health ping (SC-002: response < 1 s).
 PING_TIMEOUT_S = 2.0

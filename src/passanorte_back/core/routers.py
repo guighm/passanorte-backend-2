@@ -11,6 +11,7 @@ endpoint (FR-006/007); future feature contracts MUST reuse these prefixes.
 root, outside ``/api/v1`` (clarification Q4).
 """
 
+from importlib import import_module
 from typing import Final
 
 from fastapi import APIRouter, FastAPI
@@ -31,6 +32,13 @@ MODULE_ROUTERS: Final[dict[str, APIRouter]] = {
 
 
 def register_routers(app: FastAPI) -> None:
-    """Mount every domain router in the app (include_router)."""
-    for router in MODULE_ROUTERS.values():
+    """Mount every domain router in the app (include_router).
+
+    Each module's ``routes`` package decorates its canonical router at
+    import time (feature-driven; foundation routers stay empty without a
+    routes module). The import happens here — the same include_router
+    path used in production and by test probes.
+    """
+    for name, router in MODULE_ROUTERS.items():
+        import_module(f"passanorte_back.modules.{name}.routes")
         app.include_router(router)

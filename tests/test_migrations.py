@@ -48,12 +48,12 @@ def _database_state(database_url: str) -> tuple[set[str], int]:
             for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         }
         if "alembic_version" in tables:
-            applied = len(conn.execute("SELECT * FROM alembic_version").fetchall())
+            versions = [row[0] for row in conn.execute("SELECT * FROM alembic_version").fetchall()]
         else:
-            applied = 0
+            versions = []
     finally:
         conn.close()
-    return tables, applied
+    return tables, versions
 
 
 def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
@@ -62,27 +62,104 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
     upgrade = _alembic(database_url, "upgrade", "head")
     assert upgrade.returncode == 0, upgrade.stdout + upgrade.stderr
 
-    tables_after_upgrade, applied_after_upgrade = _database_state(database_url)
+    tables_after_upgrade, versions_after_upgrade = _database_state(database_url)
+
+    # Feature tables (T007/T008 — auth + employees schema, data-model.md).
+    # Only the feature-owned tables + Alembic state — no other business table.
+    assert tables_after_upgrade == {
+        "alembic_version",
+        "admin_users",
+        "employees",
+        "auth_sessions",
+    }, tables_after_upgrade
+    assert versions_after_upgrade == ["0002_auth_accounts"]
+
+    _assert_auth_schema(database_url)
 
     downgrade = _alembic(database_url, "downgrade", "base")
     assert downgrade.returncode == 0, downgrade.stdout + downgrade.stderr
 
-    tables_after_downgrade, applied_after_downgrade = _database_state(database_url)
+    tables_after_downgrade, versions_after_downgrade = _database_state(database_url)
 
     reupgrade = _alembic(database_url, "upgrade", "head")
     assert reupgrade.returncode == 0, reupgrade.stdout + reupgrade.stderr
 
-    tables_final, applied_final = _database_state(database_url)
+    tables_final, versions_final = _database_state(database_url)
 
-    # SC-003: only Alembic state — no business table.
-    # (Alembic keeps its own ``alembic_version`` table after a base
-    # downgrade; "revert" in Alembic terms means zeroing the revisions.)
-    assert tables_after_upgrade == {"alembic_version"}, tables_after_upgrade
-    assert applied_after_upgrade == 1
     assert tables_after_downgrade == {"alembic_version"}, tables_after_downgrade
-    assert applied_after_downgrade == 0
-    assert tables_final == {"alembic_version"}
-    assert applied_final == 1
+    assert versions_after_downgrade == []
+    assert tables_final == {
+        "alembic_version",
+        "admin_users",
+        "employees",
+        "auth_sessions",
+    }
+    assert versions_final == ["0002_auth_accounts"]
+
+
+def _assert_auth_schema(database_url: str) -> None:
+    """T007: columns/unique constraints per data-model.md (§1–§3)."""
+    import sqlite3
+
+    path = database_url.removeprefix("sqlite:///")
+    conn = sqlite3.connect(path)
+    try:
+        expected = {
+            "admin_users": {
+                "id",
+                "username",
+                "password_hash",
+                "role",
+                "is_active",
+                "is_bootstrap",
+                "created_at",
+                "updated_at",
+            },
+            "employees": {
+                "id",
+                "name",
+                "username",
+                "password_hash",
+                "role",
+                "status",
+                "created_at",
+                "updated_at",
+            },
+            "auth_sessions": {
+                "id",
+                "account_type",
+                "account_id",
+                "refresh_token_hash",
+                "created_at",
+                "expires_at",
+                "revoked_at",
+            },
+        }
+        for table, columns in expected.items():
+            names = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+            assert columns <= names, (table, names)
+        # Unique usernames (per data-model.md: case-insensitive at service
+        # level, unique index at database level) and unique refresh hash.
+        for table in ("admin_users", "employees"):
+            indexes = conn.execute(f"PRAGMA index_list({table})").fetchall()
+            has_unique_username = any(
+                row[2]
+                and conn.execute(f"PRAGMA index_info({row[1]})").fetchall()[0][2] == "username"
+                for row in indexes
+                if row[2]
+            )
+            assert has_unique_username, table
+        indexes = conn.execute("PRAGMA index_list(auth_sessions)").fetchall()
+        has_unique_refresh_hash = any(
+            row[2]
+            and conn.execute(f"PRAGMA index_info({row[1]})").fetchall()[0][2]
+            == "refresh_token_hash"
+            for row in indexes
+            if row[2]
+        )
+        assert has_unique_refresh_hash
+    finally:
+        conn.close()
 
 
 def test_database_url_is_read_from_settings_not_hardcoded() -> None:
