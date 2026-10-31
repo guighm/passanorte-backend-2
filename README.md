@@ -18,8 +18,8 @@ src/passanorte_back/
 │   ├── routers.py       # registro central dos routers /api/v1/<módulo>
 │   ├── boundaries.py    # verificação AST de fronteiras entre módulos
 │   └── modules.py       # lista canônica dos 10 módulos
-├── auth/ … chatbot/     # 10 módulos de domínio, cada um com camadas
-│                        # routes/ services/ repositories/ schemas/
+├── modules/             # 10 módulos de domínio (auth/ … chatbot/), cada um
+│                        # com routes/ services/ repositories/ schemas/
 config/location.json     # dados de localidade (city, languages) — dados, não código
 migrations/              # Alembic (baseline rev ``0001_baseline``)
 tests/                   # pytest: smoke + migrations
@@ -27,7 +27,7 @@ tests/                   # pytest: smoke + migrations
 
 **Módulos de domínio**: `auth`, `funcionarios`, `turistas`, `pontos_turisticos`,
 `eventos`, `gamificacao`, `visitacao`, `dashboard`, `notificacoes`, `chatbot`.
-Comunicação entre módulos apenas via `<módulo>.services`; `schemas`,
+Comunicação entre módulos apenas via `passanorte_back.modules.<módulo>.services`; `schemas`,
 `repositories`, `routes` e símbolos privados (`_`) são internos — a suíte de
 smoke varre o código por AST e quebra o build em qualquer import ilícito.
 

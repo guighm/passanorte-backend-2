@@ -22,7 +22,7 @@ dev = [
 ]
 
 [project.scripts]
-passanorte-back = "passanorte_back:main"
+passanorte-back = "passanorte_back.main:main"
 dev = "passanorte_back.dev:main"
 
 [tool.ruff]

@@ -13,8 +13,9 @@ from fastapi.testclient import TestClient
 
 from passanorte_back.main import app
 
-# ``passanorte_back`` re-exporta a função ``main`` (script uv), sombreando o
-# submódulo como atributo do pacote — import_module resolve o módulo real.
+# ``passanorte_back.__init__`` re-exporta a função ``main`` (script uv),
+# sombreando o submódulo como atributo do pacote — import_module resolve o
+# módulo real sob o nome completo.
 main_module = importlib.import_module("passanorte_back.main")
 
 client = TestClient(app)

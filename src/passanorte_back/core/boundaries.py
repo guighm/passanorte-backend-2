@@ -2,9 +2,11 @@
 
 Varredura AST de um pacote de domínio: importar internals privados de outro
 módulo (``schemas``/``repositories``/``routes``/símbolos com prefixo ``_``)
-gera violação com módulo e arquivo nomeados. Importar ``<módulo>.services``
-(interface de serviço pública), ``core.*`` e ``main`` é permitido
-(constituição, regras 3/5).
+gera violação com módulo e arquivo nomeados. Importar
+``<módulo>.services`` (interface de serviço pública), ``core.*`` e ``main``
+é permitido (constituição, regras 3/5). Imports absolutos vivem em
+``passanorte_back.modules.<módulo>...`` — o prefixo da raiz e o segmento
+``modules`` são removidos antes da avaliação.
 
 ``tests/smoke/test_boundaries.py`` executa esta verificação contra o código
 real e prova sua eficácia com arquivos violadores gerados em memória.
@@ -17,6 +19,13 @@ from typing import Final
 from passanorte_back.core.modules import DOMAIN_MODULES
 
 PACKAGE_ROOT = "passanorte_back"
+MODULES_SEGMENT = "modules"  # agrupa os módulos de domínio sob o pacote
+
+
+def _module_target(full_path: str) -> str:
+    """Remove ``passanorte_back[.modules]`` de um caminho absoluto de import."""
+    return full_path.removeprefix(f"{PACKAGE_ROOT}.").removeprefix(f"{MODULES_SEGMENT}.")
+
 
 # Camadas privadas ao domínio; apenas ``services`` é superfície pública.
 PRIVATE_LAYERS: Final[frozenset[str]] = frozenset({"routes", "repositories", "schemas"})
@@ -38,7 +47,8 @@ def _check_target(
     symbols: tuple[str, ...],
     violations: list[str],
 ) -> None:
-    """Avalia um import alvo ``<módulo>[.<camada>...]`` (sem raiz do pacote)."""
+    """Avalia um import alvo ``<módulo>[.<camada>...]`` (sem raiz do pacote
+    nem o segmento ``modules``)."""
     parts = target_path.split(".")
     first = parts[0]
     if first == source_module or first not in DOMAIN_MODULES:
@@ -91,7 +101,7 @@ def find_boundary_violations(package_dir: Path) -> list[str]:
                             _check_target(
                                 module,
                                 relative,
-                                alias.name.removeprefix(f"{PACKAGE_ROOT}."),
+                                _module_target(alias.name),
                                 (),
                                 violations,
                             )
@@ -102,7 +112,7 @@ def find_boundary_violations(package_dir: Path) -> list[str]:
                     _check_target(
                         module,
                         relative,
-                        target.removeprefix(f"{PACKAGE_ROOT}."),
+                        _module_target(target),
                         tuple(alias.name for alias in node.names),
                         violations,
                     )
