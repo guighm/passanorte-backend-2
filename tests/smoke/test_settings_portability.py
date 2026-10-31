@@ -1,7 +1,7 @@
-"""Smoke: portabilidade de configuração (FR-010/FR-012/FR-013; data-model).
+"""Smoke: configuration portability (FR-010/FR-012/FR-013; data-model).
 
-Defaults aplicados, resolved_city()/resolved_languages() lendo
-config/location.json, override por ambiente e erros para valores inválidos.
+Defaults applied, resolved_city()/resolved_languages() reading
+config/location.json, environment overrides and errors for invalid values.
 """
 
 import json
@@ -76,7 +76,7 @@ def test_missing_location_file_fails_with_clear_message(tmp_path: Path) -> None:
 
 def test_invalid_location_file_fails_with_clear_message(tmp_path: Path) -> None:
     bad = tmp_path / "location.json"
-    bad.write_text("{não é json", encoding="utf-8")
+    bad.write_text("{not json", encoding="utf-8")
     settings = Settings(location_data_path=bad)
     with pytest.raises(LocationDataError) as exc:
         settings.resolved_languages()

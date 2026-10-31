@@ -1,14 +1,14 @@
-"""Serviço de auditoria estruturado, log-only (RNF19; clarificação Q3).
+"""Structured, log-only audit service (RNF19; clarification Q3).
 
-``record_action`` emite exatamente 1 linha JSON por ação no logger dedicado
-``passanorte.audit`` (stdout), com os 5 campos obrigatórios — ``timestamp``
-(ISO-8601 UTC), ``actor``, ``action``, ``target``, ``result`` — e ``detail``
-opcional (FR-017). Falha de emissão levanta ``AuditError`` ao chamador
-(FR-018).
+``record_action`` emits exactly 1 JSON line per action on the dedicated
+``passanorte.audit`` logger (stdout), with the 5 mandatory fields —
+``timestamp`` (ISO-8601 UTC), ``actor``, ``action``, ``target``, ``result``
+— and optional ``detail`` (FR-017). Emission failure raises ``AuditError``
+to the caller (FR-018).
 
-Qualquer módulo consome via import de ``core`` (compartilhável sem violar
-fronteira). Persistência em tabela, quando necessária, substitui/complementa
-o sink — a interface de ``record_action`` não muda.
+Every module consumes it via a ``core`` import (shareable without violating
+boundaries). Table persistence, when needed, replaces/complements the sink
+— the ``record_action`` interface does not change.
 """
 
 import json
@@ -24,18 +24,18 @@ AUDIT_LEVEL: Final[int] = logging.INFO
 
 
 class AuditError(RuntimeError):
-    """Falha do sink de auditoria (FR-018)."""
+    """Audit sink failure (FR-018)."""
 
 
 def _configure_logger() -> logging.Logger:
-    """Logger dedicado com handler JSON para stdout (configurado uma vez)."""
+    """Dedicated logger with a JSON handler for stdout (configured once)."""
     logger = logging.getLogger(AUDIT_LOGGER_NAME)
     if not logger.handlers:
         logger.setLevel(AUDIT_LEVEL)
         handler = logging.StreamHandler(stream=sys.stdout)
         handler.setFormatter(logging.Formatter("%(message)s"))
         logger.addHandler(handler)
-    logger.propagate = True  # capturável em testes e coletável por log central
+    logger.propagate = True  # capture-able in tests and collectable by a central log
     return logger
 
 
@@ -43,7 +43,7 @@ logger = _configure_logger()
 
 
 def _emit(message: str) -> None:
-    """Sink da auditoria — trocável para persistência futura."""
+    """Audit sink — swappable for future persistence."""
     logger.log(AUDIT_LEVEL, message)
 
 
@@ -55,9 +55,9 @@ def record_action(
     *,
     detail: dict[str, object] | str | None = None,
 ) -> None:
-    """Registra 1 ação de auditoria com os campos mínimos (FR-017).
+    """Record 1 audit action with the mandatory fields (FR-017).
 
-    Levanta ``AuditError`` se a emissão falhar (FR-018).
+    Raises ``AuditError`` when emission fails (FR-018).
     """
     record: dict[str, object] = {
         "timestamp": datetime.now(UTC).isoformat(),
@@ -71,4 +71,4 @@ def record_action(
     try:
         _emit(json.dumps(record, ensure_ascii=False))
     except Exception as error:
-        raise AuditError(f"Sink de auditoria falhou: {error}") from error
+        raise AuditError(f"Audit sink failed: {error}") from error

@@ -1,1 +1,1 @@
-"""Módulo de domínio: dashboard."""
+"""Domain module: dashboard."""

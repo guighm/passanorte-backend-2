@@ -85,9 +85,11 @@ uv run pytest
 ```
 
 **Esperado**: tudo verde em < 1 min (SC-004), cobrindo: contrato `/health`
-(200/503), módulos registrados sob `/api/v1` (10 grupos no OpenAPI), settings
-(essenciais/defaults/inválidos), auditoria (registro JSON com os 5 campos) e
-fronteiras de módulo (AST: 0 violações). Nenhum segredo real em teste.
+(200/503), módulos registrados sob `/api/v1` (10 routers montados — routers
+vazios geram paths no OpenAPI apenas quando ganham endpoints; a verificação
+roda pelos routers montados), settings (essenciais/defaults/inválidos),
+auditoria (registro JSON com os 5 campos) e fronteiras de módulo (AST:
+0 violações). Nenhum segredo real em teste.
 
 ## 5. Qualidade
 

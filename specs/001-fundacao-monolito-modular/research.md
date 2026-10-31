@@ -95,9 +95,10 @@ remanescentes.
 ## R6. Registro central de routers e prefixo `/api/v1`
 
 - **Decision**: `core/routers.py` mantém a lista ordem-estável dos routers (um por
-  módulo, `include_router` em `main.py`). Contrato de negócio sob `/api/v1`;
-  prefixo de cada módulo = nome do pacote com `_` → `-` (`/api/v1/auth`,
-  `/api/v1/funcionarios`, `/api/v1/pontos-turisticos`, …). Routers vazios na
+  módulo, `include_router` em `main.py`), iterando `DOMAIN_MODULES`
+  (`core/modules.py`). Contrato de negócio sob `/api/v1`;
+  prefixo de cada módulo = nome canônico em inglês com `_` → `-` (`/api/v1/auth`,
+  `/api/v1/employees`, `/api/v1/tourist-spots`, …). Routers vazios na
   fundação (sem operações; RNF03, clarificação Q4). `/health` e docs na raiz.
 - **Rationale**: registro único facilita extrair cada módulo para serviço no
   futuro (contrato de API interna da constituição, regra 6); smoke test verifica

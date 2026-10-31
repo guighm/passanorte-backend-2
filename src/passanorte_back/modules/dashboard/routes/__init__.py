@@ -1,1 +1,1 @@
-"""Rotas HTTP do módulo."""
+"""Module HTTP routes."""

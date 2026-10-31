@@ -1,10 +1,10 @@
-"""Acesso a banco (SQLAlchemy 2.0) e verificação de saúde do banco.
+"""Database access (SQLAlchemy 2.0) and database health check.
 
-Única convergência entre motores: tudo o que varia por driver (pool,
-opções de engine) fica aqui — o resto da aplicação usa apenas
-``sessionfactory``, ``get_session`` e ``ping_database``. O motor é deduzido
-da ``settings.database_url`` (FR-014; RNF17) — nenhuma decisão de banco no
-código de domínio.
+Single convergence point across engines: everything that varies by driver
+(pool, engine options) lives here — the rest of the application only uses
+``sessionfactory``, ``get_session`` and ``ping_database``. The engine is
+inferred from ``settings.database_url`` (FR-014; RNF17) — no database
+decision in domain code.
 """
 
 from collections.abc import Iterator
@@ -16,16 +16,16 @@ from sqlalchemy.pool import StaticPool
 
 from passanorte_back.core.config import Settings, get_settings
 
-# Timeout fixo curto para o ping do /health (SC-002: resposta < 1 s).
+# Short fixed timeout for the /health ping (SC-002: response < 1 s).
 PING_TIMEOUT_S = 2.0
 
 
 def create_engine_from_settings(settings: Settings) -> Engine:
-    """Cria a engine síncrona a partir da URL configurada.
+    """Create the synchronous engine from the configured URL.
 
-    SQLite em memória usa ``StaticPool`` (uma única conexão compartilhada
-    — obrigatório para ``:memory:`` funcionar entre conexões); demais
-    motores usam os defaults do SQLAlchemy com ``pool_pre_ping``.
+    In-memory SQLite uses ``StaticPool`` (a single shared connection
+    — required for ``:memory:`` to work across connections); other
+    engines use SQLAlchemy defaults with ``pool_pre_ping``.
     """
     url = make_url(settings.database_url)
     is_memory_sqlite = url.drivername.startswith("sqlite") and (
@@ -41,22 +41,22 @@ def create_engine_from_settings(settings: Settings) -> Engine:
 
 
 def ping_database(engine: Engine) -> bool:
-    """Executa ``SELECT 1``; ``False`` se o banco estiver indisponível."""
+    """Run ``SELECT 1``; ``False`` when the database is unavailable."""
     try:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
-    except Exception:  # noqa: BLE001 — qualquer falha = degradado no /health
+    except Exception:  # noqa: BLE001 — any failure means degraded in /health
         return False
     return True
 
 
 def get_sessionfactory(engine: Engine) -> sessionmaker[Session]:
-    """Cria a session factory vinculada à engine dada."""
+    """Create the session factory bound to the given engine."""
     return sessionmaker(bind=engine, expire_on_commit=False)
 
 
 def session_scope(sessionfactory: sessionmaker[Session]) -> Iterator[Session]:
-    """Context manager transacional: commit em sucesso, rollback em erro."""
+    """Transactional context manager: commit on success, rollback on error."""
     session = sessionfactory()
     try:
         yield session
@@ -74,5 +74,5 @@ sessionfactory = get_sessionfactory(engine)
 
 
 def get_session() -> Iterator[Session]:
-    """Dependência FastAPI: sessão transacional por request."""
+    """FastAPI dependency: transactional session per request."""
     yield from session_scope(sessionfactory)

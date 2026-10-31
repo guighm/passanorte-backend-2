@@ -1,1 +1,1 @@
-"""DTOs Pydantic do módulo (privados ao domínio)."""
+"""Module Pydantic DTOs (private to the domain)."""

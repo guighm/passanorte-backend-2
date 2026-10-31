@@ -1,8 +1,9 @@
-"""Smoke: módulos registrados sob /api/v1 (contracts/module-routers.md).
+"""Smoke: modules registered under /api/v1 (contracts/module-routers.md).
 
-Routers vazios não geram paths no OpenAPI — a verificação é pelos routers
-montados (registro central ``core.routers`` + montagem efetiva com probes),
-não pelos paths. ``/health`` e ``/docs`` ficam fora do prefixo.
+Empty routers generate no OpenAPI paths — the check runs against the
+mounted routers (central registry ``core.routers`` + effective mounting
+with probes), not against paths. ``/health`` and ``/docs`` live outside
+the prefix.
 """
 
 import pytest
@@ -16,14 +17,14 @@ client = TestClient(app)
 
 EXPECTED_MODULES = [
     "auth",
-    "funcionarios",
-    "turistas",
-    "pontos_turisticos",
-    "eventos",
-    "gamificacao",
-    "visitacao",
+    "employees",
+    "tourists",
+    "tourist_spots",
+    "events",
+    "gamification",
+    "visitation",
     "dashboard",
-    "notificacoes",
+    "notifications",
     "chatbot",
 ]
 
@@ -46,9 +47,9 @@ def test_each_router_has_module_prefix_with_hyphens() -> None:
 def test_register_routers_mounts_every_module_under_api_v1(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Montagem efetiva: probes com 1 rota temporária passam por
-    ``register_routers`` — o mesmo caminho de ``include_router`` usado na
-    produção — e ficam acessíveis em ``/api/v1/<módulo>``.
+    """Effective mounting: probes with 1 temporary route go through
+    ``register_routers`` — the same ``include_router`` path used in
+    production — and become reachable at ``/api/v1/<module>``.
     """
     fresh_app = FastAPI()
     probe_routers: dict[str, APIRouter] = {}
@@ -64,7 +65,7 @@ def test_register_routers_mounts_every_module_under_api_v1(
     for name in EXPECTED_MODULES:
         expected_path = f"/api/v1/{name.replace('_', '-')}"
         response = probe_client.get(expected_path)
-        assert response.status_code == 200, f"módulo {name} sem path {expected_path}"
+        assert response.status_code == 200, f"module {name} missing path {expected_path}"
 
 
 def test_health_and_docs_live_outside_api_v1_prefix() -> None:

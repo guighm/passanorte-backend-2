@@ -15,7 +15,7 @@ if config.config_file_name is not None:
 settings = get_settings()
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
-target_metadata = None  # fundação: nenhuma tabela de negócio (FR-007)
+target_metadata = None  # foundation: no business table (FR-007)
 
 
 def run_migrations_offline() -> None:

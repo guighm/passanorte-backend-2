@@ -1,8 +1,8 @@
-"""Smoke: serviço de auditoria (FR-017/FR-018, SC-007; data-model AuditRecord).
+"""Smoke: audit service (FR-017/FR-018, SC-007; data-model AuditRecord).
 
-``record_action`` emite exatamente 1 registro JSON por ação com os 5 campos
-obrigatórios e ``detail`` opcional; ``result`` distingue
-``success``/``failure``; falha do sink levanta ``AuditError``.
+``record_action`` emits exactly 1 JSON record per action with the 5
+mandatory fields and optional ``detail``; ``result`` distinguishes
+``success``/``failure``; sink failure raises ``AuditError``.
 """
 
 import json
@@ -15,7 +15,7 @@ from passanorte_back.core.audit import AUDIT_LOGGER_NAME, AuditError, record_act
 
 @pytest.fixture()
 def audit_records() -> list[dict[str, object]]:
-    """Captura os JSONs emitidos pelo logger de auditoria em tempo real."""
+    """Capture the JSONs emitted by the audit logger in real time."""
     records: list[dict[str, object]] = []
 
     class _Capture(logging.Handler):
@@ -76,12 +76,12 @@ def test_sink_failure_raises_audit_error(monkeypatch: pytest.MonkeyPatch) -> Non
     from passanorte_back.core import audit
 
     def broken_emit(*args: object, **kwargs: object) -> None:
-        raise OSError("sink indisponível")
+        raise OSError("sink unavailable")
 
     monkeypatch.setattr(audit, "_emit", broken_emit)
     with pytest.raises(AuditError) as exc:
         record_action(actor="a", action="act", target="t", result="success")
-    assert "sink indisponível" in str(exc.value)
+    assert "sink unavailable" in str(exc.value)
 
 
 def test_no_detail_key_when_not_provided(

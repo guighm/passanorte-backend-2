@@ -1,1 +1,1 @@
-"""Módulo de domínio: auth."""
+"""Domain module: auth."""

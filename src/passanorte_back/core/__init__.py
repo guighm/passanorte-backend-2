@@ -1,5 +1,5 @@
-"""Infraestrutura comum do monolito (não é módulo de domínio).
+"""Shared infrastructure of the monolith (not a domain module).
 
-Compartilhável por todos os módulos de domínio sem violar fronteiras:
-configuração, banco de dados, auditoria e registro central de routers.
+Usable by every domain module without violating boundaries: configuration,
+database, audit and the central router registry.
 """

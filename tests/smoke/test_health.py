@@ -1,8 +1,8 @@
-"""Smoke: contrato GET /health (contracts/health.md, FR-009, clarificação Q1).
+"""Smoke: GET /health contract (contracts/health.md, FR-009, clarification Q1).
 
-200 {status: ok, database: ok} com banco conectado; 503
-{status: degraded, database: unavailable} quando o ping do banco falha.
-Ambos em < 1 s (SC-002).
+200 {status: ok, database: ok} with a connected database; 503
+{status: degraded, database: unavailable} when the database ping fails.
+Both under 1 s (SC-002).
 """
 
 import importlib
@@ -13,9 +13,9 @@ from fastapi.testclient import TestClient
 
 from passanorte_back.main import app
 
-# ``passanorte_back.__init__`` re-exporta a função ``main`` (script uv),
-# sombreando o submódulo como atributo do pacote — import_module resolve o
-# módulo real sob o nome completo.
+# ``passanorte_back.__init__`` re-exports the ``main`` function (uv script),
+# shadowing the subpackage as a package attribute — import_module resolves
+# the real module under the full name.
 main_module = importlib.import_module("passanorte_back.main")
 
 client = TestClient(app)

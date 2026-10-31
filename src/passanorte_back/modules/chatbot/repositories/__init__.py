@@ -1,1 +1,1 @@
-"""Acesso a dados do módulo (privado ao domínio)."""
+"""Module data access (private to the domain)."""

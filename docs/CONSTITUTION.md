@@ -15,16 +15,22 @@ microsserviços previsto, permitindo extração futura de serviços sem
 reescrita. Regras que decorrem disso:
 
 1. Um único processo FastAPI, um único banco de dados, um único deploy.
-2. O código é organizado em **módulos de domínio** (bounded contexts):
-   `auth`, `funcionarios`, `turistas`, `pontos_turisticos`, `eventos`,
-   `gamificacao`, `visitacao`, `dashboard`, `notificacoes`, `chatbot`.
+2. O código é organizado em **módulos de domínio** (bounded contexts),
+   nomeados em inglês: `auth`, `employees`, `tourists`, `tourist_spots`,
+   `events`, `gamification`, `visitation`, `dashboard`, `notifications`,
+   `chatbot`. A lista canônica mora em
+   `src/passanorte_back/core/modules.py` (`DOMAIN_MODULES`) — única fonte
+   de verdade para registro de routers e verificação de fronteiras.
 3. Módulos se comunicam **apenas** via interfaces explícitas de serviço
    (funções de serviço públicas) — nunca importando internals de outro
    módulo (models, schemas, repositories privados).
-4. Cada módulo mantém sua própria área de modelos/schemas/serviços/rotas;
-   não há compartilhamento de tabelas entre domínios.
-5. Toda escrita entre domínios (ex.: visitacao atualizando progresso de
-   gamificacao) passa por uma função de serviço do domínio dono dos dados,
+4. Cada módulo em `src/passanorte_back/modules/<domain>/` mantém sua própria
+   área de camadas (`routes/`, `services/`, `repositories/`, `schemas/`);
+   a infraestrutura compartilhada (config, db, routers, audit, checagem de
+   fronteiras) vive em `src/passanorte_back/core/`. Não há
+   compartilhamento de tabelas entre domínios.
+5. Toda escrita entre domínios (ex.: visitation atualizando progresso de
+   gamification) passa por uma função de serviço do domínio dono dos dados,
    nunca por UPDATE direto em suas tabelas.
 6. Nenhuma fila de mensagens, service mesh ou comunicação em rede entre
    módulos nesta fase. Quando um módulo evoluir para microsserviço, sua
@@ -93,8 +99,16 @@ configuração/dados, não em lógica de código.
 Python 3.13 com type hints em todos os módulos, Pydantic para schemas,
 organização em camadas (routes → services → repositories) dentro de cada
 módulo de domínio (RNF20). Linter (ruff) e formatter (ruff format) no
-pipeline. Nomenclatura uniforme em inglês no código, descrições/UX em
-português nos dados. README e docstrings atualizados junto com o código.
+pipeline. README e docstrings atualizados junto com o código.
+
+**Todo o código é escrito em inglês (NON-NEGOTIABLE)**: nomes de módulos,
+pacotes, classes, funções, variáveis, constantes, rotas de API, campos de
+schema, mensagens de commit e comentários/docstrings de código — em inglês.
+Conteúdo de dados e texto de usuário (nomes de pontos turísticos,
+descrições/UX exibidas ao turista) permanecem em português, conforme o
+princípio VI. Toda vez que um requisito ou documento de entrada traz um
+termo em português (ex.: `funcionarios`), ele deve ser traduzido ao nome
+canônico em inglês (ex.: `employees`) antes de virar código.
 
 ## Requisitos Adicionais (Constraints)
 
@@ -145,6 +159,9 @@ dados de idioma configuráveis).
 - Nenhuma senha em texto plano, nenhum dado sensível não criptografado, no
   código e nos testes.
 - Nenhum import cruzando a fronteira privada de outro módulo de domínio.
+- Nenhum identificador de código em português: módulos, classes, funções,
+  schemas, colunas e rotas seguem a nomenclatura canônica em inglês
+  (`DOMAIN_MODULES` em `core/modules.py`).
 - Migrations Alembic revisadas quando houver mudança de schema.
 
 ## Governance
@@ -161,4 +178,6 @@ dados de idioma configuráveis).
 - Complexidade extra precisa justificação explícita no PR e é contestável
   em review (YAGNI).
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-30 | **Last Amended**: —
+**Version**: 1.1.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-10-31
+(Módulos renomeados para nomenclatura canônica em inglês; regra de "código
+em inglês" elevada a NON-NEGOTIABLE)

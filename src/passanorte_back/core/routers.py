@@ -1,14 +1,14 @@
-"""Registro central de routers dos módulos de domínio (research R6).
+"""Central router registry for the domain modules (research R6).
 
-Um ``APIRouter`` por módulo, prefixo ``/api/v1/<nome-com-hifens>`` (``_`` →
-``-``). O registro é ordem-estável e único: incluir um módulo novo aqui é o
-suficiente para montá-lo no app (``register_routers`` em ``main.py``). Na
-fundaçăo os routers estão vazios — nenhum endpoint de negócio (FR-006/007);
-contratos de negócio das features futuras reutilizam estes prefixos
-obrigatoriamente.
+One ``APIRouter`` per module, prefix ``/api/v1/<name-with-hyphens>``
+(``_`` → ``-``), names taken from the canonical ``DOMAIN_MODULES`` list
+(``core/modules.py``). Registration is stable-ordered and unique: adding a
+module there is enough to mount it in the app (``register_routers`` in
+``main.py``). In the foundation the routers are empty — no business
+endpoint (FR-006/007); future feature contracts MUST reuse these prefixes.
 
-``/health`` e a documentação (``/docs``, ``/openapi.json``) vivem na raiz,
-fora de ``/api/v1`` (clarificação Q4).
+``/health`` and the documentation (``/docs``, ``/openapi.json``) live at the
+root, outside ``/api/v1`` (clarification Q4).
 """
 
 from typing import Final
@@ -21,7 +21,7 @@ API_V1_PREFIX: Final = "/api/v1"
 
 
 def module_prefix(module: str) -> str:
-    """Prefixo HTTP do módulo: nome do pacote com ``_`` → ``-``."""
+    """Module HTTP prefix: canonical package name with ``_`` → ``-``."""
     return f"{API_V1_PREFIX}/{module.replace('_', '-')}"
 
 
@@ -31,6 +31,6 @@ MODULE_ROUTERS: Final[dict[str, APIRouter]] = {
 
 
 def register_routers(app: FastAPI) -> None:
-    """Monta todos os routers de domínio no app (include_router)."""
+    """Mount every domain router in the app (include_router)."""
     for router in MODULE_ROUTERS.values():
         app.include_router(router)

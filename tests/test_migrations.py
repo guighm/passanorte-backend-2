@@ -1,8 +1,8 @@
-"""Integração: persistência versionada e portável (FR-015/FR-016, SC-003).
+"""Integration: versioned, portable persistence (FR-015/FR-016, SC-003).
 
-``upgrade head`` sobre banco vazio conclui; ``downgrade base`` reverte;
-re-``upgrade`` reaplica. O banco contém apenas ``alembic_version`` — nenhuma
-tabela de negócio (FR-007).
+``upgrade head`` over an empty database succeeds; ``downgrade base``
+reverts; re-``upgrade`` reapplies. The database contains only
+``alembic_version`` — no business table (FR-007).
 """
 
 import os
@@ -14,10 +14,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _alembic(database_url: str, *args: str) -> subprocess.CompletedProcess[str]:
-    """Roda ``alembic -m`` com a URL do banco isolada do teste.
+    """Run ``alembic`` with a test-isolated database URL.
 
-    Subprocesso isolado: a env do processo de teste já fixa DATABASE_URL via
-    conftest — aqui passamos a URL do banco temporário explicitamente.
+    Isolated subprocess: the test process env already fixes DATABASE_URL
+    via conftest — here we pass the temporary database URL explicitly.
     """
     return subprocess.run(
         [
@@ -35,12 +35,12 @@ def _alembic(database_url: str, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 def _database_state(database_url: str) -> tuple[set[str], int]:
-    """(tabelas, revisions aplicados) do banco de arquivo SQLite."""
+    """(tables, applied revisions) of the SQLite file database."""
     import sqlite3
 
     path = database_url.removeprefix("sqlite:///")
     if not path:
-        return {":memory:"}, 0  # nunca deve acontecer neste teste
+        return {":memory:"}, 0  # should never happen in this test
     conn = sqlite3.connect(path)
     try:
         tables = {
@@ -74,9 +74,9 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
 
     tables_final, applied_final = _database_state(database_url)
 
-    # SC-003: apenas o estado do Alembic — nenhuma tabela de negócio.
-    # (Alembic mantém a própria tabela ``alembic_version`` após o downgrade
-    # base; "reverter" em termos de Alembico significa zerar as revisions.)
+    # SC-003: only Alembic state — no business table.
+    # (Alembic keeps its own ``alembic_version`` table after a base
+    # downgrade; "revert" in Alembic terms means zeroing the revisions.)
     assert tables_after_upgrade == {"alembic_version"}, tables_after_upgrade
     assert applied_after_upgrade == 1
     assert tables_after_downgrade == {"alembic_version"}, tables_after_downgrade
@@ -86,7 +86,7 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
 
 
 def test_database_url_is_read_from_settings_not_hardcoded() -> None:
-    """``migrations/env.py`` nunca hardcodea URL — usa ``settings.database_url``."""
+    """``migrations/env.py`` never hardcodes the URL — uses ``settings.database_url``."""
     env_py = (REPO_ROOT / "migrations" / "env.py").read_text(encoding="utf-8")
     assert "settings.database_url" in env_py or "config = CONFIG" in env_py
     assert "postgresql://" not in env_py

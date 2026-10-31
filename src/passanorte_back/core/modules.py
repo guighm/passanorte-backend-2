@@ -1,19 +1,19 @@
-"""Lista canônica dos 10 módulos de domínio (constituição, decisão fundacional).
+"""Canonical list of the 10 domain modules (constitution, foundational decision).
 
-Única fonte de verdade para registro de routers e verificação de fronteiras.
+Single source of truth for router registration and boundary verification.
 """
 
 from typing import Final
 
 DOMAIN_MODULES: Final[tuple[str, ...]] = (
     "auth",
-    "funcionarios",
-    "turistas",
-    "pontos_turisticos",
-    "eventos",
-    "gamificacao",
-    "visitacao",
+    "employees",
+    "tourists",
+    "tourist_spots",
+    "events",
+    "gamification",
+    "visitation",
     "dashboard",
-    "notificacoes",
+    "notifications",
     "chatbot",
 )

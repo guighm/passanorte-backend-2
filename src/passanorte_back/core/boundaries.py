@@ -1,15 +1,15 @@
-"""Verificação automatizada de fronteiras entre módulos (FR-004/FR-005).
+"""Automated boundary verification between modules (FR-004/FR-005).
 
-Varredura AST de um pacote de domínio: importar internals privados de outro
-módulo (``schemas``/``repositories``/``routes``/símbolos com prefixo ``_``)
-gera violação com módulo e arquivo nomeados. Importar
-``<módulo>.services`` (interface de serviço pública), ``core.*`` e ``main``
-é permitido (constituição, regras 3/5). Imports absolutos vivem em
-``passanorte_back.modules.<módulo>...`` — o prefixo da raiz e o segmento
-``modules`` são removidos antes da avaliação.
+AST scan of a domain package: importing another module's private internals
+(``schemas``/``repositories``/``routes``/symbols with a ``_`` prefix)
+produces a violation naming the module and the file. Importing
+``<module>.services`` (public service interface), ``core.*`` and ``main``
+is allowed (constitution, rules 3/5). Absolute imports live under
+``passanorte_back.modules.<module>...`` — the root prefix and the
+``modules`` segment are removed before evaluation.
 
-``tests/smoke/test_boundaries.py`` executa esta verificação contra o código
-real e prova sua eficácia com arquivos violadores gerados em memória.
+``tests/smoke/test_boundaries.py`` runs this check against the real code
+and proves its effectiveness with in-memory violator files.
 """
 
 import ast
@@ -19,15 +19,15 @@ from typing import Final
 from passanorte_back.core.modules import DOMAIN_MODULES
 
 PACKAGE_ROOT = "passanorte_back"
-MODULES_SEGMENT = "modules"  # agrupa os módulos de domínio sob o pacote
+MODULES_SEGMENT = "modules"  # groups the domain modules under the package
 
 
 def _module_target(full_path: str) -> str:
-    """Remove ``passanorte_back[.modules]`` de um caminho absoluto de import."""
+    """Strip ``passanorte_back[.modules]`` from an absolute import path."""
     return full_path.removeprefix(f"{PACKAGE_ROOT}.").removeprefix(f"{MODULES_SEGMENT}.")
 
 
-# Camadas privadas ao domínio; apenas ``services`` é superfície pública.
+# Layers private to the domain; only ``services`` is the public surface.
 PRIVATE_LAYERS: Final[frozenset[str]] = frozenset({"routes", "repositories", "schemas"})
 
 
@@ -35,8 +35,8 @@ def _violation_message(
     source_module: str, relative_file: Path, target_module: str, detail: str
 ) -> str:
     return (
-        f"[fronteira] módulo '{source_module}' importa interno privado de "
-        f"'{target_module}' ({detail}) — arquivo: {relative_file}"
+        f"[boundary] module '{source_module}' imports private internals of "
+        f"'{target_module}' ({detail}) — file: {relative_file}"
     )
 
 
@@ -47,12 +47,12 @@ def _check_target(
     symbols: tuple[str, ...],
     violations: list[str],
 ) -> None:
-    """Avalia um import alvo ``<módulo>[.<camada>...]`` (sem raiz do pacote
-    nem o segmento ``modules``)."""
+    """Evaluate a target import ``<module>[.<layer>...]`` (without the package
+    root or the ``modules`` segment)."""
     parts = target_path.split(".")
     first = parts[0]
     if first == source_module or first not in DOMAIN_MODULES:
-        return  # core, main e o próprio módulo são liberados
+        return  # core, main and the module itself are exempt
     layer = parts[1] if len(parts) > 1 else ""
     if layer.startswith("_"):
         violations.append(_violation_message(source_module, relative_file, first, layer))
@@ -67,12 +67,12 @@ def _check_target(
 
 
 def _resolve_target(node: ast.ImportFrom, package_parts: tuple[str, ...]) -> str | None:
-    """Resolve ``node.module`` (absoluto ou relativo) em caminho do pacote.
+    """Resolve ``node.module`` (absolute or relative) into a package path.
 
-    ``package_parts`` é o caminho do pacote do arquivo (ex.: ``("auth",
-    "services")``). ``node.level`` sobe ``level - 1`` níveis a partir dele.
+    ``package_parts`` is the package path of the file (e.g. ``("auth",
+    "services")``). ``node.level`` climbs ``level - 1`` levels from it.
     """
-    if not node.level:  # absoluto: o caminho do node já é completo
+    if not node.level:  # absolute: node path is already the full import path
         return node.module or None
     base = package_parts[: len(package_parts) - max(node.level - 1, 0)]
     segments = [segment for segment in (*base, node.module or "") if segment]
@@ -82,7 +82,7 @@ def _resolve_target(node: ast.ImportFrom, package_parts: tuple[str, ...]) -> str
 
 
 def find_boundary_violations(package_dir: Path) -> list[str]:
-    """Retorna uma mensagem por violação; lista vazia = fronteiras íntegras."""
+    """Return one message per violation; empty list = boundaries intact."""
     violations: list[str] = []
     for module in DOMAIN_MODULES:
         module_dir = package_dir / module

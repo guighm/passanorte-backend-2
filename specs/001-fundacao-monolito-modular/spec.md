@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-30
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "Implementar a fundação do backend PassaNorte como um MONOLITO MODULAR em FastAPI (Python 3.13, uv), conforme docs/CONSTITUTION.md. Requisitos: (a) estrutura src/passanorte_back com pacote de módulos de domínio auth, funcionarios, turistas, pontos_turisticos, eventos, gamificacao, visitacao, dashboard, notificacoes, chatbot, cada um com subpastas routes/services/repositories/schemas, sem imports cruzados de internals privados entre módulos; (b) app FastAPI único em src/passanorte_back/main.py montando routers por módulo e /health; (c) settings via pydantic-settings com variáveis de ambiente (DATABASE_URL, JWT_SECRET, JWT_TTL, raio padrão de tolerância GPS, cidade padrão, idiomas habilitados); (d) persistência com SQLAlchemy 2.0 + Alembic, PostgreSQL em produção e SQLite para testes (RNF17); (e) infra de auditoria: serviço de log estruturado para ações administrativas (RNF19); (f) configuração de dados de cidade/idiomas em settings/dados, não em código (RNF06). Requisitos de referência: RNF03, RNF06, RNF17, RNF19, RNF20. Não implementar RFs de negócio nesta fase. Critério de aceitação: app sobe, /health responde, migration inicial roda, testes de smoke passam."
 
@@ -57,9 +57,10 @@ saúde; a resposta deve indicar estado saudável em segundos.
 ### User Story 2 - Esqueleto de módulos de domínio com fronteiras rígidas (Priority: P2)
 
 Uma desenvolvedora abre o repositório e encontra, de imediato, a organização em
-módulos de domínio (`auth`, `funcionarios`, `turistas`, `pontos_turisticos`,
-`eventos`, `gamificacao`, `visitacao`, `dashboard`, `notificacoes`, `chatbot`),
-cada um com as mesmas camadas internas (rotas, serviços, repositórios, schemas).
+módulos de domínio (`auth`, `employees`, `tourists`, `tourist_spots`, `events`,
+`gamification`, `visitation`, `dashboard`, `notifications`, `chatbot` — lista
+canônica em `DOMAIN_MODULES`, `core/modules.py`), cada um com as mesmas camadas
+internas (routes, services, repositories, schemas).
 As rotas de cada módulo já estão montadas na aplicação única. As fronteiras entre
 módulos são verificáveis automaticamente: nenhum módulo importa os internals
 privados (models, schemas, repositories) de outro.
@@ -74,9 +75,9 @@ e a aplicação continua subindo e respondendo.
 
 **Acceptance Scenarios**:
 
-1. **Given** o repositório na fundação, **When** a árvore `src/passanorte_back` é
-   inspecionada, **Then** cada um dos 10 módulos de domínio existe com as camadas
-   rotas/serviços/repositórios/schemas.
+1. **Given** o repositório na fundação, **When** a árvore
+   `src/passanorte_back/modules` é inspecionada, **Then** cada um dos 10 módulos
+   de domínio existe com as camadas routes/services/repositories/schemas.
 2. **Given** a aplicação no ar, **When** a documentação da API é consultada,
    **Then** cada módulo aparece como grupo de rotas (ainda sem endpoints de
    negócio nesta fase).
@@ -211,12 +212,17 @@ obrigatórios presentes e legível por máquina.
   monta as rotas de todos os módulos de domínio em um único processo de API
   (constituição, regras 1–2).
 - **FR-002**: O repositório MUST conter pacotes separados para os 10 módulos de
-  domínio: `auth`, `funcionarios`, `turistas`, `pontos_turisticos`, `eventos`,
-  `gamificacao`, `visitacao`, `dashboard`, `notificacoes`, `chatbot` (RNF20;
-  constituição, regra 2).
+  domínio em `src/passanorte_back/modules/`: `auth`, `employees`, `tourists`,
+  `tourist_spots`, `events`, `gamification`, `visitation`, `dashboard`,
+  `notifications`, `chatbot` — nomes canônicos em inglês, espelhados pela lista
+  `DOMAIN_MODULES` em `core/modules.py` (RNF20; constituição, regras 2 e 4 e
+  Princípio VII; nomenclatura English-only NON-NEGOTIABLE).
 - **FR-003**: Cada módulo de domínio MUST expor a mesma organização interna em
-  camadas — rotas, serviços, repositórios, schemas (RNF20; constituição, regra 4).
-- **FR-004**: Nenhum módulo MUST importar internals privados (models, schemas
+  camadas — `routes/`, `services/`, `repositories/`, `schemas/` — sob
+  `src/passanorte_back/modules/<domain>/`; a infraestrutura compartilhada
+  (config, db, routers, audit, verificação de fronteiras, `DOMAIN_MODULES`)
+  reside em `src/passanorte_back/core/` (RNF20; constituição, regra 4).
+- **FR-004**: Um módulo MUST NOT importar internals privados (models, schemas
   internos, repositories) de outro módulo de domínio; comunicação entre módulos
   ocorre exclusivamente por funções de serviço públicas do módulo dono dos dados
   (constituição, regras 3 e 5).

@@ -1,1 +1,1 @@
-"""Módulo de domínio: chatbot."""
+"""Domain module: chatbot."""

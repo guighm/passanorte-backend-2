@@ -52,10 +52,11 @@ lógica de cidade/idiomas em código (FR-013); 0 violações de fronteira de mó
 (FR-004); ruff sem erros (FR-020); nenhuma fila, cache multicamada ou
 comunicação em rede entre módulos (Princípio V).
 
-**Scale/Scope**: 10 módulos de domínio esqueleto (`auth`, `funcionarios`,
-`turistas`, `pontos_turisticos`, `eventos`, `gamificacao`, `visitacao`,
-`dashboard`, `notificacoes`, `chatbot`), 1 infraestrutura comum (`core`), 1
-migration baseline, suíte de smoke com 5 grupos de verificação (FR-021).
+**Scale/Scope**: 10 módulos de domínio esqueleto (`auth`, `employees`,
+`tourists`, `tourist_spots`, `events`, `gamification`, `visitation`,
+`dashboard`, `notifications`, `chatbot` — canônicos em `DOMAIN_MODULES`,
+`core/modules.py`), 1 infraestrutura comum (`core`), 1 migration baseline,
+suíte de smoke com 5 grupos de verificação (FR-021).
 
 ## Constitution Check
 
@@ -100,22 +101,25 @@ src/passanorte_back/
 │   ├── config.py          # Settings (pydantic-settings) + dados de localidade
 │   ├── db.py              # engine/session (SQLAlchemy 2.0), health do banco
 │   ├── audit.py           # serviço de auditoria (log estruturado JSON)
+│   ├── modules.py         # DOMAIN_MODULES — única fonte de verdade (constituição, regra 2)
+│   ├── boundaries.py      # verificação de fronteiras entre módulos (FR-005)
 │   └── routers.py         # registro central dos routers de domínio
-├── auth/
-│   ├── __init__.py
-│   ├── routes/__init__.py         # APIRouter, prefixo /api/v1/auth
-│   ├── services/__init__.py       # interface de serviço pública
-│   ├── repositories/__init__.py   # acesso a dados (vazio na fundação)
-│   └── schemas/__init__.py        # DTOs Pydantic (vazio na fundação)
-├── funcionarios/…         # mesmas 4 subpastas (padrão idêntico)
-├── turistas/…
-├── pontos_turisticos/…
-├── eventos/…
-├── gamificacao/…
-├── visitacao/…
-├── dashboard/…
-├── notificacoes/…
-└── chatbot/…
+└── modules/               # módulos de domínio (bounded contexts, constituição regra 4)
+    ├── auth/
+    │   ├── __init__.py
+    │   ├── routes/__init__.py         # APIRouter, prefixo /api/v1/auth
+    │   ├── services/__init__.py       # interface de serviço pública
+    │   ├── repositories/__init__.py   # acesso a dados (vazio na fundação)
+    │   └── schemas/__init__.py        # DTOs Pydantic (vazio na fundação)
+    ├── employees/…        # mesmas 4 subpastas (padrão idêntico, nomes em inglês)
+    ├── tourists/…
+    ├── tourist_spots/…
+    ├── events/…
+    ├── gamification/…
+    ├── visitation/…
+    ├── dashboard/…
+    ├── notifications/…
+    └── chatbot/…
 
 config/
 └── location.json          # dados de localidade: city, languages (RNF06)

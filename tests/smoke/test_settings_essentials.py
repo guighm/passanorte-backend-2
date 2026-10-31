@@ -1,7 +1,7 @@
-"""Smoke: Settings essenciais (FR-010/FR-011/FR-012).
+"""Smoke: essential Settings (FR-010/FR-011/FR-012).
 
-Ausência de DATABASE_URL ou JWT_SECRET interrompe a construção de Settings
-com mensagem nomeando o campo. Nenhum default para os dois essenciais.
+Missing DATABASE_URL or JWT_SECRET interrupts Settings construction with a
+message naming the field. No defaults for the two essentials.
 """
 
 import pytest
@@ -45,4 +45,4 @@ def test_empty_database_url_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_both_essentials_present_builds_ok() -> None:
     settings = Settings()
     assert settings.database_url == "sqlite:///:memory:"
-    assert settings.jwt_secret  # sintético do conftest, nunca real
+    assert settings.jwt_secret  # synthetic from conftest, never real

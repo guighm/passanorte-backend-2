@@ -61,12 +61,15 @@ falha de emissão sinaliza `AuditError` ao chamador (FR-018).
 
 ### 4. DomainModule (conceito estrutural, não persistido)
 
-Unidade organizacional do monolito; registro central em `core/routers.py`.
+Unidade organizacional do monolito; registro central em `core/routers.py`,
+lista canônica em `DOMAIN_MODULES` (`core/modules.py` — constituição, regra 2).
 
-- 10 módulos: `auth`, `funcionarios`, `turistas`, `pontos_turisticos`,
-  `eventos`, `gamificacao`, `visitacao`, `dashboard`, `notificacoes`, `chatbot`.
-- Cada módulo: camadas `routes/`, `services/`, `repositories/`, `schemas/`.
-- Prefixo HTTP: `/api/v1/<nome-com-hifens>` (ex.: `/api/v1/pontos-turisticos`).
+- 10 módulos (nomes de pacote em inglês): `auth`, `employees`, `tourists`,
+  `tourist_spots`, `events`, `gamification`, `visitation`, `dashboard`,
+  `notifications`, `chatbot`.
+- Cada módulo em `src/passanorte_back/modules/<domain>/`: camadas `routes/`,
+  `services/`, `repositories/`, `schemas/`.
+- Prefixo HTTP: `/api/v1/<nome-com-hifens>` (ex.: `/api/v1/tourist-spots`).
 - Regra de fronteira (testada por AST): outros módulos só importam
   `<modulo>.services`; `schemas`/`repositories`/`routes`/símbolos privados são
   privados ao módulo.

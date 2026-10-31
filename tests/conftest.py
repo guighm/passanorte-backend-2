@@ -1,8 +1,8 @@
-"""Configuração global de testes: ambiente fixo e sintético.
+"""Global test configuration: fixed, synthetic environment.
 
-Fixa DATABASE_URL (SQLite em memória) e JWT_SECRET sintético — jamais um
-segredo real (Quality Gate: nenhum dado sensível em teste, FR-011).
-Cada teste que precisa de outro perfil sobrescreve via monkeypatch.
+Fixes DATABASE_URL (in-memory SQLite) and a synthetic JWT_SECRET — never a
+real secret (Quality Gate: no sensitive data in tests, FR-011). Tests that
+need another profile override via monkeypatch.
 """
 
 import os
@@ -12,19 +12,19 @@ import pytest
 TEST_DATABASE_URL = "sqlite:///:memory:"
 TEST_JWT_SECRET = "test-only-synthetic-secret-not-real"
 
-# Essenciais também no nível do módulo (tempo de coleta): módulos de teste
-# que importam ``passanorte_back.main`` (e, indiretamente, ``core.db``, que
-# constrói Settings) rodam antes de qualquer fixture.
+# Essentials also at module level (collection time): test modules importing
+# ``passanorte_back.main`` (and, indirectly, ``core.db``, which builds
+# Settings) run before any fixture.
 os.environ.setdefault("DATABASE_URL", TEST_DATABASE_URL)
 os.environ.setdefault("JWT_SECRET", TEST_JWT_SECRET)
 
 
 @pytest.fixture(autouse=True)
 def _test_settings_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Ambiente essencial sintético para todos os testes (autouse)."""
+    """Synthetic essential environment for every test (autouse)."""
     monkeypatch.setenv("DATABASE_URL", TEST_DATABASE_URL)
     monkeypatch.setenv("JWT_SECRET", TEST_JWT_SECRET)
-    # Isola os testes de qualquer .env presente no checkout.
+    # Isolate the tests from any .env present in the checkout.
     monkeypatch.delenv("JWT_TTL", raising=False)
     monkeypatch.delenv("GPS_TOLERANCE_RADIUS_M", raising=False)
     monkeypatch.delenv("CITY_NAME", raising=False)

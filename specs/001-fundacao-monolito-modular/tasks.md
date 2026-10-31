@@ -41,7 +41,7 @@ dependência entre si — T001 completa primeiro (toda a árvore depende dos dep
 conftest de teste e Settings essenciais. ⚠️ CRITICAL: nenhuma story começa antes
 desta fase completa.
 
-- [X] T005 Criar os 10 pacotes de domínio em `src/passanorte_back/` — `auth`, `funcionarios`, `turistas`, `pontos_turisticos`, `eventos`, `gamificacao`, `visitacao`, `dashboard`, `notificacoes`, `chatbot` — cada um com `routes/`, `services/`, `repositories/`, `schemas/` (subpacotes vazios com `__init__.py` e docstring) (FR-002, FR-003)
+- [X] T005 Criar os 10 pacotes de domínio em `src/passanorte_back/modules/` — `auth`, `employees`, `tourists`, `tourist_spots`, `events`, `gamification`, `visitation`, `dashboard`, `notifications`, `chatbot` (nomes canônicos em inglês de `DOMAIN_MODULES`, `core/modules.py`; constituição, regras 2 e 4 e Princípio VII, English-only NON-NEGOTIABLE) — cada um com `routes/`, `services/`, `repositories/`, `schemas/` (subpacotes vazios com `__init__.py` e docstring) (FR-002, FR-003)
 - [X] T006 [P] Criar `tests/conftest.py`: fixture de ambiente de teste fixando env `DATABASE_URL=sqlite:///:memory:` e `JWT_SECRET` sintético (nunca real — Quality Gate), autouse para todos os testes
 - [X] T007 [P] Escrever `tests/smoke/test_settings_essentials.py` (RED primeiro): ausência de `DATABASE_URL` ou de `JWT_SECRET` deve interromper a construção de Settings com mensagem nomeando o campo (FR-012); nenhum valor default para os 2 essenciais
 - [X] T008 Implementar `src/passanorte_back/core/config.py`: `Settings` (BaseSettings, `env_file=".env"`, `extra="ignore"`) com `database_url: str` e `jwt_secret: str` essenciais, validadores exigindo strings não vazias (FR-010/011/012; research R1) — T007 fica verde
@@ -65,7 +65,7 @@ necessário para o critério de aceitação mínimo "app sobe, /health responde"
 ### Tests for User Story 1 ⚠️ (escrever primeiro, garantir RED)
 
 - [X] T009 [P] [US1] Escrever contrato `/health` saudável em `tests/smoke/test_health.py`: HTTP 200 com corpo `{"status":"ok","database":"ok"}` usando SQLite em memória do conftest, via TestClient (contracts/health.md)
-- [X] T010 [P] [US1] Escrever contrato `/health` degradado em `tests/smoke/test_health.py`: HTTP 503 com corpo `{"status":"degraded","database":"unavailable"}` quando o ping do banco falha (contracts/health.md)
+- [X] T010 [US1] Escrever contrato `/health` degradado em `tests/smoke/test_health.py`: HTTP 503 com corpo `{"status":"degraded","database":"unavailable"}` quando o ping do banco falha (contracts/health.md)
 
 ### Implementation for User Story 1
 
@@ -89,11 +89,11 @@ os 10 prefixos.
 ### Tests for User Story 2 ⚠️ (escrever primeiro)
 
 - [X] T013 [P] [US2] Escrever `tests/smoke/test_modules.py`: app via TestClient sobe sem erro; `app.routes` contém os routers montados com os 10 prefixos `/api/v1/<modulo>` (contrato em contracts/module-routers.md, tabela completa — routers vazios não geram paths no OpenAPI, por isso a verificação é pelos routers montados, não pelos paths); `/health` e `/docs` fora do prefixo (RED contra T015)
-- [X] T014 [P] [US2] Escrever `tests/smoke/test_boundaries.py`: varredura AST de `src/passanorte_back/*` falhando ao detectar import cruzado de internals privados de outro módulo (`schemas`, `repositories`, `routes`, símbolos com prefixo `_`); imports de `<modulo>.services`, `core.*` e `main` permitidos; incluir teste negativo embutido que viola em memória e espera falha da função de detecção (FR-004/005; research R5)
+- [X] T014 [P] [US2] Escrever `tests/smoke/test_boundaries.py`: varredura AST de `src/passanorte_back/modules/*` falhando ao detectar import cruzado de internals privados de outro módulo (subpacotes `schemas`, `repositories`, `routes`, símbolos com prefixo `_`); imports de `passanorte_back.modules.<domain>.services`, `passanorte_back.core.*` e `main` permitidos; incluir teste negativo embutido que viola em memória e espera falha da função de detecção (FR-004/005; research R5; escopo por `DOMAIN_MODULES` em `core/modules.py`)
 
 ### Implementation for User Story 2
 
-- [X] T015 [US2] Implementar `src/passanorte_back/core/routers.py`: registro central ordem-estável com 1 APIRouter por módulo, prefixo = nome do pacote com `_` → `-` (ex.: `pontos_turisticos` → `/api/v1/pontos-turisticos`) e `include_router` efetivado em `main.py` (T013 verde)
+- [X] T015 [US2] Implementar `src/passanorte_back/core/routers.py`: registro central ordem-estável iterando `DOMAIN_MODULES` (`core/modules.py`) com 1 APIRouter por módulo, prefixo = nome canônico em inglês com `_` → `-` (ex.: `tourist_spots` → `/api/v1/tourist-spots`) e `include_router` efetivado em `main.py` (T013 verde)
 - [X] T016 [US2] Provar eficácia da verificação (SC-005): introduzir temporariamente um import ilegal deliberado em um módulo, confirmar que `test_boundaries.py` falha apontando módulo/arquivo ofensores, e reverter — registrar resultado no checklist final da story
 
 **Checkpoint**: Estrutura de módulos íntegra e montada; fronteiras exigidas pelo
@@ -171,6 +171,14 @@ emitida: JSON com `timestamp`, `actor`, `action`, `target`, `result`.
 - [X] T027 Auditar segurança: `grep` por segredos/valores hardcoded no código e históricos de teste (FR-011); confirmar `.env` não rastreado pelo git
 - [X] T028 Executar validação end-to-end do `specify`: `specs/001-fundacao-monolito-modular/quickstart.md` passo a passo (app sobe, `/health` 200/503, alembic up/down, pytest 100%, ruff limpo) — checklist do critério de aceitação
 - [X] T029 [P] Validar migration contra PostgreSQL em container (`alembic upgrade head` + `downgrade base` com `DATABASE_URL=postgresql://...` local), documentando comando e resultado no quickstart passo 3 (FR-016, perfil produção)
+
+---
+
+## Phase 9: Convergence
+
+- [X] T030 Tipar `register_routers(app: FastAPI)` em `src/passanorte_back/core/routers.py`, removendo o `type: ignore[attr-defined]`, mantendo `ruff check`/`ruff format` limpos (FR-020, Princípio VII)
+- [X] T031 Traduzir todos os comentários e docstrings de código para o inglês (constituição v1.1.0, Princípio VII — English-only NON-NEGOTIABLE), em `src/passanorte_back/` (`core/`, `modules/`, `main.py`) e `tests/`; strings operacionais (mensagens de erro de config, mensagem de violação de fronteira, mensagens de assert de teste) em inglês; manter português apenas em conteúdo de dados (`config/location.json`), textos de usuário e valores de fixture de dados. Corrigir a corrupção de encoding `fundaçăo` em `core/routers.py` (CRITICAL D1 de `/speckit-analyze`)
+- [X] T032 Ajustes de baixa severidade do `/speckit-analyze`: FR-004 reescrito com "MUST NOT" (spec.md), status da spec atualizado para Implemented, marcador `[P]` removido de T010 (mesmo arquivo que T009)
 
 ---
 
@@ -253,6 +261,8 @@ Com múltiplos desenvolvedores após Foundational:
 - Commit após cada tarefa ou grupo lógico
 - Parar em cada checkpoint para validar a story independentemente
 - Nenhuma tabela de negócio, nenhum endpoint de RF nesta fase (FR-007)
-## Phase 9: Convergence
 
-- [X] T030 Tipar `register_routers(app: FastAPI)` em `src/passanorte_back/core/routers.py`, removendo o `type: ignore[attr-defined]`, mantendo `ruff check`/`ruff format` limpos (FR-020, Princípio VII) (partial)
+## Phase 10: Convergence
+
+- [X] T033 Add a FastAPI lifespan to `src/passanorte_back/main.py` that disposes the DB engine on shutdown per the "ciclo de vida" touch-point in plan.md (partial)
+- [X] T034 Fix the expected outcome in `specs/001-fundacao-monolito-modular/quickstart.md` (line 88): empty routers emit no OpenAPI paths — smoke verification runs against mounted routers, not OpenAPI paths (partial)

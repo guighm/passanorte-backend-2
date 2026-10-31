@@ -1,10 +1,11 @@
-"""Smoke: fronteiras entre módulos via AST (FR-004/FR-005; research R5).
+"""Smoke: module boundaries via AST (FR-004/FR-005; research R5).
 
-A verificação varre ``src/passanorte_back/modules`` e falha ao importar internals
-privados de outro módulo (``schemas``, ``repositories``, ``routes`` ou
-símbolos com prefixo ``_``). Import de ``<módulo>.services``, ``core.*`` e
-``main`` é permitido. O teste negativo embutido prova a eficácia: um arquivo
-violador gerado em memória produz violação apontando módulo e arquivo.
+The check scans ``src/passanorte_back/modules`` and fails on importing
+another module's private internals (``schemas``, ``repositories``,
+``routes`` or ``_``-prefixed symbols). Import of ``<module>.services``,
+``core.*`` and ``main`` is allowed. The built-in negative test proves
+effectiveness: an in-memory violator file yields a violation naming the
+offending module and file.
 """
 
 from pathlib import Path
@@ -28,19 +29,19 @@ def test_real_codebase_has_zero_boundary_violations() -> None:
 
 
 def test_detection_proofs_against_deliberate_violation(tmp_path: Path) -> None:
-    """Teste negativo: arquivo violador em memória gera violação nomeando
-    módulo e arquivo ofensores (cenário 4 da US-2)."""
-    guilty = tmp_path / "funcionarios" / "services" / "__init__.py"
+    """Negative test: an in-memory violator file yields a violation naming
+    the offending module and file (US-2 scenario 4)."""
+    guilty = tmp_path / "employees" / "services" / "__init__.py"
     guilty.parent.mkdir(parents=True)
     guilty.write_text(
-        "from passanorte_back.modules.turistas.schemas import TuristaIn\n",
+        "from passanorte_back.modules.tourists.schemas import TuristaIn\n",
         encoding="utf-8",
     )
     violations = find_boundary_violations(tmp_path)
 
     assert len(violations) == 1
-    assert "funcionarios" in violations[0]
-    assert "turistas" in violations[0]
+    assert "employees" in violations[0]
+    assert "tourists" in violations[0]
     assert "schemas" in violations[0]
 
 
@@ -48,7 +49,7 @@ def test_private_symbol_import_is_flagged(tmp_path: Path) -> None:
     guilty = tmp_path / "dashboard" / "services" / "__init__.py"
     guilty.parent.mkdir(parents=True)
     guilty.write_text(
-        "from passanorte_back.modules.eventos._internal import build\n",
+        "from passanorte_back.modules.events._internal import build\n",
         encoding="utf-8",
     )
     violations = find_boundary_violations(tmp_path)
@@ -57,10 +58,10 @@ def test_private_symbol_import_is_flagged(tmp_path: Path) -> None:
 
 
 def test_services_import_across_modules_is_allowed(tmp_path: Path) -> None:
-    allowed = tmp_path / "gamificacao" / "services" / "__init__.py"
+    allowed = tmp_path / "gamification" / "services" / "__init__.py"
     allowed.parent.mkdir(parents=True)
     allowed.write_text(
-        "from passanorte_back.modules.visitacao.services import register_visit\n",
+        "from passanorte_back.modules.visitation.services import register_visit\n",
         encoding="utf-8",
     )
     assert find_boundary_violations(tmp_path) == []

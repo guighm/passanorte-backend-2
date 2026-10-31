@@ -25,8 +25,8 @@ migrations/              # Alembic (baseline rev ``0001_baseline``)
 tests/                   # pytest: smoke + migrations
 ```
 
-**Módulos de domínio**: `auth`, `funcionarios`, `turistas`, `pontos_turisticos`,
-`eventos`, `gamificacao`, `visitacao`, `dashboard`, `notificacoes`, `chatbot`.
+**Módulos de domínio**: `auth`, `employees`, `tourists`, `tourist_spots`,
+`events`, `gamification`, `visitation`, `dashboard`, `notifications`, `chatbot`.
 Comunicação entre módulos apenas via `passanorte_back.modules.<módulo>.services`; `schemas`,
 `repositories`, `routes` e símbolos privados (`_`) são internos — a suíte de
 smoke varre o código por AST e quebra o build em qualquer import ilícito.
