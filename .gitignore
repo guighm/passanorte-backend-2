@@ -8,3 +8,9 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Segredos e bancos locais — nunca versionados (FR-011)
+.env
+.env.*
+*.db
+*.sqlite3
