@@ -1,9 +1,10 @@
 """Application configuration (pydantic-settings).
 
-Two REQUIRED values with no default (FR-010/FR-012): ``database_url`` and
-``jwt_secret``. The absence of either one interrupts initialization with a
-message naming the field (FR-012). Secrets live exclusively in environment
-variables / ``.env`` — never in code (FR-011).
+Three REQUIRED values with no default (FR-010/FR-012): ``database_url``,
+``jwt_secret`` and ``sensitive_data_key`` (RNF08). The absence of any one
+interrupts initialization with a message naming the field (FR-012). Secrets
+live exclusively in environment variables / ``.env`` — never in code
+(FR-011).
 
 The database profile (PostgreSQL production / SQLite tests) is chosen only
 by the URL in ``database_url`` (FR-014; RNF17) — no engine decision in
@@ -26,8 +27,9 @@ class LocationDataError(RuntimeError):
 class Settings(BaseSettings):
     """Configuration values loaded from the environment at startup.
 
-    Required (no default): ``database_url``, ``jwt_secret``. With default:
-    ``jwt_ttl`` (3600 s), ``jwt_refresh_ttl`` (604800 s), ``gps_tolerance_radius_m``
+    Required (no default): ``database_url``, ``jwt_secret``,
+    ``sensitive_data_key``. With default: ``jwt_ttl`` (3600 s),
+    ``jwt_refresh_ttl`` (604800 s), ``gps_tolerance_radius_m``
     (100.0), ``city_name``
     and ``languages`` (from the location file), ``location_data_path``
     (``config/location.json``).
@@ -41,6 +43,7 @@ class Settings(BaseSettings):
 
     database_url: str
     jwt_secret: str
+    sensitive_data_key: str
     jwt_ttl: int = 3600
     jwt_refresh_ttl: int = 604800
     gps_tolerance_radius_m: float = 100.0
@@ -51,7 +54,7 @@ class Settings(BaseSettings):
     )
     location_data_path: Path = Path("config/location.json")
 
-    @field_validator("database_url", "jwt_secret")
+    @field_validator("database_url", "jwt_secret", "sensitive_data_key")
     @classmethod
     def _reject_empty(cls, value: str, info: ValidationInfo) -> str:
         field = getattr(info, "field_name", "field")
@@ -120,6 +123,42 @@ class Settings(BaseSettings):
                 f"Key 'languages' must be a non-empty list in '{self.location_data_path}'."
             )
         return languages
+
+    def resolved_interest_categories(self) -> list[dict[str, str]]:
+        """Interest categories from the location file (data, not code — RNF06).
+
+        Each item must carry a non-empty ``key`` (canonical English code
+        identifier) and a non-empty ``label`` (user-facing text). Missing or
+        invalid block → structured ``LocationDataError``.
+        """
+        data = self._read_location_data()
+        categories = data.get("interest_categories")
+        if not isinstance(categories, list) or not categories:
+            raise LocationDataError(
+                "Key 'interest_categories' must be a non-empty list of "
+                f"{{'key', 'label'}} objects in '{self.location_data_path}'."
+            )
+        resolved: list[dict[str, str]] = []
+        for item in categories:
+            if not isinstance(item, dict):
+                raise LocationDataError(
+                    "Each entry of 'interest_categories' must be an object "
+                    f"with 'key' and 'label' in '{self.location_data_path}'."
+                )
+            key = item.get("key")
+            label = item.get("label")
+            if (
+                not isinstance(key, str)
+                or not key.strip()
+                or not isinstance(label, str)
+                or not label.strip()
+            ):
+                raise LocationDataError(
+                    "Each entry of 'interest_categories' needs non-empty "
+                    f"'key' and 'label' strings in '{self.location_data_path}'."
+                )
+            resolved.append({"key": key.strip(), "label": label.strip()})
+        return resolved
 
 
 @lru_cache(maxsize=1)

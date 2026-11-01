@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
 TEST_JWT_SECRET = "test-only-synthetic-secret-not-real"
+TEST_SENSITIVE_DATA_KEY = "PNCzqoMAz1KHMnG9dMYiwXyv8L53y8MA4msQ0fPSDhw="
 TEST_ADMIN_PASSWORD = "synthetic-admin-password-1"
 
 # Essentials also at module level (collection time): test modules importing
@@ -27,6 +28,7 @@ TEST_ADMIN_PASSWORD = "synthetic-admin-password-1"
 # Settings) run before any fixture.
 os.environ.setdefault("DATABASE_URL", TEST_DATABASE_URL)
 os.environ.setdefault("JWT_SECRET", TEST_JWT_SECRET)
+os.environ.setdefault("SENSITIVE_DATA_KEY", TEST_SENSITIVE_DATA_KEY)
 
 
 @pytest.fixture(autouse=True)
@@ -54,6 +56,10 @@ def db_engine():
     from passanorte_back.modules.auth.repositories.admin_users import AdminUser  # noqa: F401
     from passanorte_back.modules.auth.repositories.auth_sessions import AuthSession  # noqa: F401
     from passanorte_back.modules.employees.repositories.employees import Employee  # noqa: F401
+    from passanorte_back.modules.tourists.repositories.tourist_interests import (  # noqa: F401
+        TouristInterest,
+    )
+    from passanorte_back.modules.tourists.repositories.tourists import Tourist  # noqa: F401
 
     engine = create_engine(
         TEST_DATABASE_URL,

@@ -31,12 +31,13 @@ Comunicação entre módulos apenas via `passanorte_back.modules.<módulo>.servi
 `repositories`, `routes` e símbolos privados (`_`) são internos — a suíte de
 smoke varre o código por AST e quebra o build em qualquer import ilícito.
 
-## Configuração (2 essenciais + 4 com default)
+## Configuração (3 essenciais + demais com default)
 
 | Variável | Obrigatória | Default | Uso |
 |---|---|---|---|
 | `DATABASE_URL` | **sim** | — | Perfil do banco (PostgreSQL prod / SQLite testes) |
 | `JWT_SECRET` | **sim** | — | Segredo JWT via env — nunca no código |
+| `SENSITIVE_DATA_KEY` | **sim** | — | Chave Fernet (32 bytes url-safe) de e-mail/CPF/passaporte/telefone (RNF08, feature 003) |
 | `JWT_TTL` | não | `3600` | TTL do token de acesso (s), > 0 |
 | `JWT_REFRESH_TTL` | não | `604800` | TTL da credencial de renovação (s), > 0 |
 | `ADMIN_USERNAME` | **sim** (script) | — | Usuário do bootstrap administrativo (`create-admin`) |
@@ -46,9 +47,31 @@ smoke varre o código por AST e quebra o build em qualquer import ilícito.
 | `ENABLED_LANGUAGES` | não | arquivo de localidade | Override dos idiomas (JSON list) |
 | `LOCATION_DATA_PATH` | não | `config/location.json` | Caminho do arquivo de localidade |
 
-Sem `DATABASE_URL` ou `JWT_SECRET` a aplicação se recusa a subir, nomeando o
-campo ausente. Cidade e idiomas são **dados** (`config/location.json`) —
-trocar de cidade/idiomas é editar JSON e reiniciar, zero código.
+Sem `DATABASE_URL`, `JWT_SECRET` ou `SENSITIVE_DATA_KEY` a aplicação se recusa
+a subir, nomeando o campo ausente. Gere a chave Fernet uma única vez
+(em env/`.env` — nunca no repositório):
+
+```sh
+uv run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+`SENSITIVE_DATA_KEY` protege os dados sensíveis do turista e gera subchaves
+HMAC-SHA256 (HKDF, um contexto por campo: e-mail/CPF/passaporte) para as
+colunas de unicidade/igualdade (`*_lookup`) — nenhum valor sensível é
+persistido em texto claro (RNF08) e a mesma chave serve para criptografar e
+para lookup, sem segundo segredo em env.
+
+Cidade, idiomas e **categorias de interesse** são **dados**
+(`config/location.json`) — trocar de cidade/idiomas/categorias é editar JSON
+e reiniciar, zero código. Bloco de categorias (RNF06, feature 003):
+
+```json
+{ "interest_categories": [
+  { "key": "gastronomy", "label": "Gastronomia" },
+  { "key": "nature", "label": "Natureza" },
+  { "key": "culture", "label": "Cultura" }
+] }
+```
 
 ## Como rodar
 
@@ -100,5 +123,31 @@ para código, testes ou logs.
 `GET /health` responde 200 `{"status":"ok","database":"ok"}` ou 503
 `{"status":"degraded","database":"unavailable"}` quando o banco indicado por
 `DATABASE_URL` está inacessível.
+
+## Turistas e perfil (feature 003-turistas-perfil)
+
+Fluxo do app Passaporte sob `/api/v1/tourists` (contratos completos em
+[specs/003-turistas-perfil/contracts/tourists.md](specs/003-turistas-perfil/contracts/tourists.md)):
+
+1. **Cadastro** (RF22) — `POST /api/v1/tourists` (público): nome, sobrenome,
+   país, telefone (`+DDI`), e-mail, senha (≥ 8) e **exatamente um** documento
+   (CPF com/sem máscara **ou** passaporte alfanumérico 6–10). 201 retorna só
+   id/nome/país; duplicado e-mail/CPF/passaporte → 409 sem vazamento.
+2. **Login** (RF23) — `POST /api/v1/tourists/login` (público): par de
+   credenciais da fundação com `role: "tourist"`; falha → 401 genérico.
+   Renovação/`logout` usam `POST /api/v1/auth/refresh` e `/auth/logout`.
+3. **Perfil** (RF24) — `GET /tourists/me` (turista) e
+   `GET/PATCH /tourists/{id}` (próprio ou admin — outro turista → 403, admin
+   sem alvo → 404): dados sensíveis descriptografados SOMENTE para self/admin
+   (RNF08). Não há edição de senha nesta feature.
+4. **Interesses** (RF25) — `GET /tourists/interest-categories` (qualquer
+   conta autenticada; categorias do `location.json`), `GET/PUT
+   /tourists/me/interests` (turista; PUT substitui a seleção integralmente,
+   categoria inválida → 422).
+
+Os dados sensíveis do turista (e-mail, CPF, passaporte, telefone) são
+armazenados **criptografados** (Fernet) com colunas irmã de lookup
+(HMAC-SHA256 keyado) para unicidade — nunca em texto claro (RNF08); a senha
+fica em bcrypt (RNF10).
 
 Scripts `uv run passanorte-back` e `uv run dev` sobem o app (o `dev` com reload).

@@ -1,4 +1,20 @@
 {
   "city": "Passa Quatro",
-  "languages": ["pt-BR"]
+  "languages": [
+    "pt-BR"
+  ],
+  "interest_categories": [
+    {
+      "key": "gastronomy",
+      "label": "Gastronomia"
+    },
+    {
+      "key": "nature",
+      "label": "Natureza"
+    },
+    {
+      "key": "culture",
+      "label": "Cultura"
+    }
+  ]
 }

@@ -95,6 +95,11 @@ def _find_session_session(
         if credential is None or not credential.active:
             raise _http_401()
         username, role = credential.username, credential.role
+    elif account_type == "tourist":
+        tourist = _lookup_tourist_by_id(session, account_id)
+        if tourist is None or not tourist.active:
+            raise _http_401()
+        username, role = tourist.email, tourist.role
     else:
         raise _http_401()
 
@@ -124,6 +129,13 @@ def _lookup_employee_by_id(session: Session, account_id: int):
     )
 
 
+def _lookup_tourist_by_id(session: Session, account_id: int):
+    """Tourist state reload via the public tourists interface (T017)."""
+    from passanorte_back.modules.tourists.services.tourists import get_tourist_account
+
+    return get_tourist_account(session, account_id)
+
+
 def get_current_user(
     session: Annotated[Session, Depends(get_session)],
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)],
@@ -144,4 +156,22 @@ def require_admin(
     return user
 
 
-__all__ = ["AuthenticatedUser", "get_current_user", "require_admin"]
+def require_tourist(
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+) -> AuthenticatedUser:
+    """FastAPI dependency: tourist-exclusive routes (app Passaporte) —
+    403 for admin/employee (FR-015/s16)."""
+    if user.account_type != "tourist":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_FORBIDDEN_PERMISSION,
+        )
+    return user
+
+
+__all__ = [
+    "AuthenticatedUser",
+    "get_current_user",
+    "require_admin",
+    "require_tourist",
+]

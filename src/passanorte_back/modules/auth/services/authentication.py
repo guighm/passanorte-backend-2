@@ -129,14 +129,32 @@ def _resolve_employee_by_id(session: Session, account_id: int) -> _ResolvedAccou
     )
 
 
-def _issue_pair(
+def _resolve_tourist_by_id(session: Session, account_id: int) -> _ResolvedAccount | None:
+    """Tourist state reload via the public tourists interface (research R3)."""
+    from passanorte_back.modules.tourists.services import get_tourist_account
+
+    account = get_tourist_account(session, account_id)
+    if account is None:
+        return None
+    return _ResolvedAccount(
+        account_type="tourist",
+        account_id=account.account_id,
+        role=account.role,
+        active=account.active,
+        username=account.email,
+    )
+
+
+def issue_session(
     session: Session,
     *,
     account_type: AccountType,
     account_id: int,
     role: str,
 ) -> SessionTokens:
-    """Persist the session row and issue the credential pair (clar. Q1)."""
+    """Public write interface (constitution rule 5): persist the session row
+    and issue the credential pair — the ONLY way another module (tourists)
+    writes ``auth_sessions`` (research R3)."""
     settings = get_settings()
     refresh_token = generate_refresh_token()
     auth_session = create_auth_session(
@@ -183,7 +201,7 @@ def login(session: Session, *, username: str, password: str) -> SessionTokens:
         )
         raise InvalidCredentialsError(GENERIC_FAILURE)
 
-    tokens = _issue_pair(
+    tokens = issue_session(
         session,
         account_type=resolved.account_type,
         account_id=resolved.account_id,
@@ -213,8 +231,10 @@ def refresh(session: Session, *, refresh_token: str) -> SessionTokens:
 
     if row.account_type == "admin":
         resolved = _resolve_admin_by_id(session, row.account_id)
-    else:
+    elif row.account_type == "employee":
         resolved = _resolve_employee_by_id(session, row.account_id)
+    else:
+        resolved = _resolve_tourist_by_id(session, row.account_id)
     if resolved is None or not resolved.active:
         record_action(
             actor="unknown",
@@ -227,7 +247,7 @@ def refresh(session: Session, *, refresh_token: str) -> SessionTokens:
     # Single-use: the old session dies exactly when the new pair is issued.
     revoke_session(session, row.id)
 
-    tokens = _issue_pair(
+    tokens = issue_session(
         session,
         account_type=resolved.account_type,
         account_id=resolved.account_id,

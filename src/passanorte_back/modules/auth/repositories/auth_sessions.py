@@ -14,8 +14,8 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from passanorte_back.core.db import Base
 
-ACCOUNT_TYPES: tuple[str, str] = ("admin", "employee")
-AccountType = Literal["admin", "employee"]
+ACCOUNT_TYPES: tuple[str, str, str] = ("admin", "employee", "tourist")
+AccountType = Literal["admin", "employee", "tourist"]
 
 REFRESH_HASH_LENGTH = 64
 

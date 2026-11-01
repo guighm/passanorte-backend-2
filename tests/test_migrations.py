@@ -64,17 +64,20 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
 
     tables_after_upgrade, versions_after_upgrade = _database_state(database_url)
 
-    # Feature tables (T007/T008 — auth + employees schema, data-model.md).
+    # Feature tables (auth + employees + tourists schema, data-model.md).
     # Only the feature-owned tables + Alembic state — no other business table.
     assert tables_after_upgrade == {
         "alembic_version",
         "admin_users",
         "employees",
         "auth_sessions",
+        "tourists",
+        "tourist_interests",
     }, tables_after_upgrade
-    assert versions_after_upgrade == ["0002_auth_accounts"]
+    assert versions_after_upgrade == ["0003_tourists"]
 
     _assert_auth_schema(database_url)
+    _assert_tourists_schema(database_url)
 
     downgrade = _alembic(database_url, "downgrade", "base")
     assert downgrade.returncode == 0, downgrade.stdout + downgrade.stderr
@@ -93,8 +96,10 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
         "admin_users",
         "employees",
         "auth_sessions",
+        "tourists",
+        "tourist_interests",
     }
-    assert versions_final == ["0002_auth_accounts"]
+    assert versions_final == ["0003_tourists"]
 
 
 def _assert_auth_schema(database_url: str) -> None:
@@ -158,6 +163,65 @@ def _assert_auth_schema(database_url: str) -> None:
             if row[2]
         )
         assert has_unique_refresh_hash
+    finally:
+        conn.close()
+
+
+def _assert_tourists_schema(database_url: str) -> None:
+    """T006: columns/unique constraints per data-model.md (§1–§2)."""
+    import sqlite3
+
+    path = database_url.removeprefix("sqlite:///")
+    conn = sqlite3.connect(path)
+    try:
+        expected = {
+            "tourists": {
+                "id",
+                "first_name",
+                "last_name",
+                "country_of_origin",
+                "email_encrypted",
+                "email_lookup",
+                "phone_encrypted",
+                "cpf_encrypted",
+                "cpf_lookup",
+                "passport_encrypted",
+                "passport_lookup",
+                "password_hash",
+                "created_at",
+                "updated_at",
+            },
+            "tourist_interests": {
+                "id",
+                "tourist_id",
+                "category_key",
+            },
+        }
+        for table, columns in expected.items():
+            names = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+            assert columns <= names, (table, names)
+        # Unique lookups (equality/uniqueness without plaintext — RNF08).
+        for table, column in (
+            ("tourists", "email_lookup"),
+            ("tourists", "cpf_lookup"),
+            ("tourists", "passport_lookup"),
+        ):
+            indexes = conn.execute(f"PRAGMA index_list({table})").fetchall()
+            has_unique = any(
+                row[2] and conn.execute(f"PRAGMA index_info({row[1]})").fetchall()[0][2] == column
+                for row in indexes
+                if row[2]
+            )
+            assert has_unique, (table, column)
+        unique_pairs = {
+            tuple(row[2] for row in conn.execute(f"PRAGMA index_info({name})").fetchall())
+            for _, name, on_unique in (
+                (item[0], item[1], item[2])
+                for item in conn.execute("PRAGMA index_list(tourist_interests)").fetchall()
+            )
+            if on_unique
+        }
+        assert ("tourist_id", "category_key") in unique_pairs, unique_pairs
     finally:
         conn.close()
 
