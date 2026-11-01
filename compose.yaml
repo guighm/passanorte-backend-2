@@ -1,0 +1,66 @@
+# Local development environment — PassaNorte backend (spec 004).
+#
+# Services: db (PostgreSQL + named volume + healthcheck), api (FastAPI image,
+# migrations before uvicorn, hot reload), dbgate (preloaded DB explorer).
+# All credentials come from `.env` — never baked into images (FR-014/FR-016).
+# Copy .env.example -> .env before running: `cp .env.example .env`.
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?required - copy .env.example to .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required - copy .env.example to .env}
+      POSTGRES_DB: ${POSTGRES_DB:?required - copy .env.example to .env}
+    volumes:
+      # Named volume: data outlives `down`; destroyed only by `down -v` (FR-012)
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      # Container-level env vars are expanded by the shell inside the container
+      # ($$ escapes Compose interpolation)
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+
+  api:
+    build: .
+    image: passanorte-back:dev
+    env_file: .env
+    environment:
+      # Compose network address always wins over the env_file copy (FR-008/iii;
+      # research D7) — other settings keep coming from .env
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      # Hot reload (FR-019; research D4): host code replaces the baked copy
+      - ./src:/app/src
+    depends_on:
+      db:
+        condition: service_healthy
+    # ENTRYPOINT (docker/entrypoint.sh) runs `alembic upgrade head` first, then
+    # execs this command; --reload activates the watcher for development (FR-019)
+    command: uvicorn passanorte_back.main:app --host 0.0.0.0 --port 8000 --reload
+
+  dbgate:
+    image: dbgate/dbgate:7.3.3
+    ports:
+      - "${DBGATE_PORT:-8080}:3000"
+    environment:
+      # Preloaded connection (FR-009; research D8): same POSTGRES_* trio, no
+      # credential typing in the browser. DbGate's CONNECTIONS env expects a
+      # list of connection IDs; each field comes as its own ENGINE_/SERVER_/...
+      # variable (the JSON-array form logs DBGM-00006 "missing ENGINE").
+      CONNECTIONS: passanorte
+      LABEL_passanorte: PassaNorte PostgreSQL
+      ENGINE_passanorte: postgres@dbgate-plugin-postgres
+      SERVER_passanorte: db
+      PORT_passanorte: 5432
+      USER_passanorte: ${POSTGRES_USER}
+      PASSWORD_passanorte: ${POSTGRES_PASSWORD}
+      DATABASE_passanorte: ${POSTGRES_DB}
+
+volumes:
+  postgres-data:
