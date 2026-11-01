@@ -13,17 +13,17 @@ ME_URL = "/api/v1/tourists/me"
 
 
 def _register(
-    client, *, email: str, cpf: str | None = "123.456.789-09", passport_number: str | None = None
+    client, *, email: str, cpf: str | None = "123.456.789-09", passportNumber: str | None = None
 ) -> dict:
     """Register a tourist (cpf digits are synthetic VALID examples only)."""
     response = client.post(
         REGISTER_URL,
         json={
-            "first_name": "Ana",
-            "last_name": "Silva",
-            "country_of_origin": "Brasil",
+            "firstName": "Ana",
+            "lastName": "Silva",
+            "countryOfOrigin": "Brasil",
             "cpf": cpf,
-            "passport_number": passport_number,
+            "passportNumber": passportNumber,
             "phone": "+5511999999999",
             "email": email,
             "password": "long-enough-password-1",
@@ -54,13 +54,13 @@ def _auth_bearer(access_token: str) -> dict:
 def test_get_me_returns_decrypted_self_profile(client, tourist_a: dict) -> None:
     """FR-006/FR-007: own values legible; no interests saved yet."""
     pair = _login(client, "ana@example.com")
-    response = client.get(ME_URL, headers=_auth_bearer(pair["access_token"]))
+    response = client.get(ME_URL, headers=_auth_bearer(pair["accessToken"]))
     assert response.status_code == 200
     body = response.json()
     assert body["email"] == "ana@example.com"
     assert body["phone"] == "+5511999999999"
     assert body["cpf"] == "12345678909"
-    assert body["passport_number"] is None
+    assert body["passportNumber"] is None
     assert body["interests"] == []
     assert body["id"] == tourist_a["id"]
     assert not any(key.endswith(("_encrypted", "_lookup", "password_hash")) for key in body)
@@ -72,10 +72,12 @@ def test_get_other_tourist_profile_is_403_and_leaks_nothing(
     """SC-004: another tourist → 403, no existence leak."""
     pair = _login(client, "bruna@example.com")
     response = client.get(
-        f"/api/v1/tourists/{tourist_a['id']}", headers=_auth_bearer(pair["access_token"])
+        f"/api/v1/tourists/{tourist_a['id']}", headers=_auth_bearer(pair["accessToken"])
     )
     assert response.status_code == 403
-    assert response.json() == {"detail": "insufficient permissions"}
+    body = response.json()
+    assert body["errorCode"] == "authorization_failed"
+    assert body["message"] == "insufficient permissions"
 
 
 def test_patch_other_tourist_profile_is_403_and_target_unchanged(
@@ -85,8 +87,8 @@ def test_patch_other_tourist_profile_is_403_and_target_unchanged(
     pair = _login(client, "bruna@example.com")
     response = client.patch(
         f"/api/v1/tourists/{tourist_a['id']}",
-        headers=_auth_bearer(pair["access_token"]),
-        json={"country_of_origin": "Invadido"},
+        headers=_auth_bearer(pair["accessToken"]),
+        json={"countryOfOrigin": "Invadido"},
     )
     assert response.status_code == 403
 
@@ -101,13 +103,13 @@ def test_patch_me_updates_country_and_phone(client, tourist_a: dict) -> None:
     pair = _login(client, "ana@example.com")
     response = client.patch(
         ME_URL.replace("/me", f"/{tourist_a['id']}"),
-        headers=_auth_bearer(pair["access_token"]),
-        json={"country_of_origin": "Argentina", "phone": "+541155500000"},
+        headers=_auth_bearer(pair["accessToken"]),
+        json={"countryOfOrigin": "Argentina", "phone": "+541155500000"},
     )
     assert response.status_code == 204, response.text
 
-    profile = client.get(ME_URL, headers=_auth_bearer(pair["access_token"])).json()
-    assert profile["country_of_origin"] == "Argentina"
+    profile = client.get(ME_URL, headers=_auth_bearer(pair["accessToken"])).json()
+    assert profile["countryOfOrigin"] == "Argentina"
     assert profile["phone"] == "+541155500000"
 
 
@@ -115,30 +117,30 @@ def test_patch_document_swap_is_accepted(client, tourist_a: dict) -> None:
     pair = _login(client, "ana@example.com")
     response = client.patch(
         f"/api/v1/tourists/{tourist_a['id']}",
-        headers=_auth_bearer(pair["access_token"]),
-        json={"cpf": None, "passport_number": "AB123456"},
+        headers=_auth_bearer(pair["accessToken"]),
+        json={"cpf": None, "passportNumber": "AB123456"},
     )
     assert response.status_code == 204, response.text
-    profile = client.get(ME_URL, headers=_auth_bearer(pair["access_token"])).json()
+    profile = client.get(ME_URL, headers=_auth_bearer(pair["accessToken"])).json()
     assert profile["cpf"] is None
-    assert profile["passport_number"] == "AB123456"
+    assert profile["passportNumber"] == "AB123456"
 
 
 def test_patch_removing_the_document_is_422(client) -> None:
     """Contract: final result with NO document → 422 (a tourist that only
     holds a passport, removing it)."""
-    registered = _register(client, email="erin@example.com", cpf=None, passport_number="AB123456")
+    registered = _register(client, email="erin@example.com", cpf=None, passportNumber="AB123456")
     pair = _login(client, "erin@example.com")
     response = client.patch(
         f"/api/v1/tourists/{registered['id']}",
-        headers=_auth_bearer(pair["access_token"]),
-        json={"passport_number": None},
+        headers=_auth_bearer(pair["accessToken"]),
+        json={"passportNumber": None},
     )
     assert response.status_code == 422
     # A no-op removal against a tourist holding the OTHER document is fine.
     response = client.patch(
         f"/api/v1/tourists/{registered['id']}",
-        headers=_auth_bearer(pair["access_token"]),
+        headers=_auth_bearer(pair["accessToken"]),
         json={"cpf": "111.444.777-35"},
     )
     assert response.status_code == 204
@@ -148,7 +150,7 @@ def test_patch_email_to_taken_is_409(client, tourist_a: dict, tourist_b: dict) -
     pair = _login(client, "ana@example.com")
     response = client.patch(
         f"/api/v1/tourists/{tourist_a['id']}",
-        headers=_auth_bearer(pair["access_token"]),
+        headers=_auth_bearer(pair["accessToken"]),
         json={"email": "bruna@example.com"},
     )
     assert response.status_code == 409
@@ -158,13 +160,13 @@ def test_patch_invalid_fields_are_422(client, tourist_a: dict) -> None:
     pair = _login(client, "ana@example.com")
     response = client.patch(
         f"/api/v1/tourists/{tourist_a['id']}",
-        headers=_auth_bearer(pair["access_token"]),
+        headers=_auth_bearer(pair["accessToken"]),
         json={"phone": "5511999999999"},
     )
     assert response.status_code == 422
     response = client.patch(
         f"/api/v1/tourists/{tourist_a['id']}",
-        headers=_auth_bearer(pair["access_token"]),
+        headers=_auth_bearer(pair["accessToken"]),
         json={"email": "not-an-email"},
     )
     assert response.status_code == 422
@@ -175,7 +177,7 @@ def test_patch_password_field_is_ignored_or_rejected(client, tourist_a: dict) ->
     pair = _login(client, "ana@example.com")
     response = client.patch(
         f"/api/v1/tourists/{tourist_a['id']}",
-        headers=_auth_bearer(pair["access_token"]),
+        headers=_auth_bearer(pair["accessToken"]),
         json={"password": "another-password-1"},
     )
     assert response.status_code == 422  # extra="forbid"
@@ -188,14 +190,14 @@ def test_admin_gets_and_patches_any_tourist(client, tourist_a: dict, seeded_admi
         "/api/v1/auth/login",
         json={"username": "admin.panel", "password": TEST_ADMIN_PASSWORD},
     ).json()
-    headers = _auth_bearer(pair["access_token"])
+    headers = _auth_bearer(pair["accessToken"])
 
     response = client.get(f"/api/v1/tourists/{tourist_a['id']}", headers=headers)
     assert response.status_code == 200  # admin access (principle I)
     assert response.json()["email"] == "ana@example.com"
 
     response = client.patch(
-        f"/api/v1/tourists/{tourist_a['id']}", headers=headers, json={"last_name": "Editada"}
+        f"/api/v1/tourists/{tourist_a['id']}", headers=headers, json={"lastName": "Editada"}
     )
     assert response.status_code == 204
 
@@ -206,3 +208,24 @@ def test_admin_gets_and_patches_any_tourist(client, tourist_a: dict, seeded_admi
 def test_get_me_without_token_is_401(client, tourist_a: dict) -> None:
     assert client.get(ME_URL).status_code == 401
     assert client.get("/api/v1/tourists/999").status_code == 401
+
+
+def test_patch_tourist_rejects_snake_case_and_unknown_keys(client, tourist_a: dict) -> None:
+    """SC-002 per-endpoint coverage: PATCH /tourists/{id} is strict too."""
+    pair = _login(client, "ana@example.com")
+    snake = client.patch(
+        f"/api/v1/tourists/{tourist_a['id']}",
+        headers=_auth_bearer(pair["accessToken"]),
+        json={"cpf": None, "passport_number": "AB000000"},
+    )
+    assert snake.status_code == 422
+    keys = [item["key"] for item in snake.json()["details"]]
+    assert "passport_number" in keys
+    unknown = client.patch(
+        f"/api/v1/tourists/{tourist_a['id']}",
+        headers=_auth_bearer(pair["accessToken"]),
+        json={"nickname": "n"},
+    )
+    assert unknown.status_code == 422
+    keys = [item["key"] for item in unknown.json()["details"]]
+    assert "nickname" in keys

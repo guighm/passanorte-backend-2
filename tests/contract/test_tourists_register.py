@@ -18,11 +18,11 @@ VALID_PHONE = "+5511999999999"
 
 def _payload(**overrides):
     base = {
-        "first_name": "Ana",
-        "last_name": "Silva",
-        "country_of_origin": "Brasil",
+        "firstName": "Ana",
+        "lastName": "Silva",
+        "countryOfOrigin": "Brasil",
         "cpf": VALID_CPF,
-        "passport_number": None,
+        "passportNumber": None,
         "phone": VALID_PHONE,
         "email": "ana@example.com",
         "password": "long-enough-password-1",
@@ -65,18 +65,18 @@ def test_register_with_masked_cpf_returns_201_without_sensitive_values(
     response = _register(client)
     assert response.status_code == 201, response.text
     body = response.json()
-    assert set(body) == {"id", "first_name", "last_name", "country_of_origin"}
+    assert set(body) == {"id", "firstName", "lastName", "countryOfOrigin"}
     assert body == {
         "id": body["id"],
-        "first_name": "Ana",
-        "last_name": "Silva",
-        "country_of_origin": "Brasil",
+        "firstName": "Ana",
+        "lastName": "Silva",
+        "countryOfOrigin": "Brasil",
     }
     _assert_no_sensitive_plaintext_in_database(sessionfactory_for)
 
 
 def test_register_with_passport_returns_201(client) -> None:
-    response = _register(client, cpf=None, passport_number=VALID_PASSPORT, email="bob@example.com")
+    response = _register(client, cpf=None, passportNumber=VALID_PASSPORT, email="bob@example.com")
     assert response.status_code == 201, response.text
     assert response.json()["id"] > 0
 
@@ -115,9 +115,9 @@ def test_register_phone_without_plus_is_422(client) -> None:
 
 
 def test_register_passport_bad_format_is_422(client) -> None:
-    response = _register(client, cpf=None, passport_number="AB1", email="erin@example.com")
+    response = _register(client, cpf=None, passportNumber="AB1", email="erin@example.com")
     assert response.status_code == 422
-    assert "passport_number" in response.text
+    assert "passportNumber" in response.text
 
 
 def test_register_no_document_is_422(client) -> None:
@@ -126,7 +126,7 @@ def test_register_no_document_is_422(client) -> None:
 
 
 def test_register_two_documents_is_422(client) -> None:
-    response = _register(client, passport_number=VALID_PASSPORT)
+    response = _register(client, passportNumber=VALID_PASSPORT)
     assert response.status_code == 422
 
 
@@ -138,31 +138,43 @@ def test_register_short_password_is_422(client) -> None:
 
 def test_register_long_name_or_country_is_422(client) -> None:
     too_long = "x" * 101
-    response = _register(client, first_name=too_long)
+    response = _register(client, firstName=too_long)
     assert response.status_code == 422
-    response = _register(client, country_of_origin=too_long)
+    response = _register(client, countryOfOrigin=too_long)
     assert response.status_code == 422
+
+
+def test_register_rejects_snake_case_and_unknown_keys(client) -> None:
+    """FR-003/FR-010: retroactive strictness on the shipped endpoint."""
+    snake = _register(client, passport_number="AB000000")
+    assert snake.status_code == 422
+    keys = [item["key"] for item in snake.json()["details"]]
+    assert "passport_number" in keys
+    unknown = _register(client, middleName="Z")
+    assert unknown.status_code == 422
+    keys = [item["key"] for item in unknown.json()["details"]]
+    assert "middleName" in keys
 
 
 def test_register_duplicate_email_is_409_without_leak(client) -> None:
     first = _register(client)
     assert first.status_code == 201
-    second = _register(client, cpf=None, passport_number="ZZ999999")
+    second = _register(client, cpf=None, passportNumber="ZZ999999")
     assert second.status_code == 409
-    assert second.json() == {"detail": "tourist already registered"}
+    body = second.json()
+    assert body["errorCode"] == "conflict"
+    assert body["message"] == "tourist already registered"
 
 
 def test_register_duplicate_cpf_is_409(client) -> None:
     assert _register(client).status_code == 201
-    response = _register(client, email="other@example.com", cpf=VALID_CPF, passport_number=None)
+    response = _register(client, email="other@example.com", cpf=VALID_CPF, passportNumber=None)
     assert response.status_code == 409
 
 
 def test_register_duplicate_passport_is_409(client) -> None:
-    assert _register(client, cpf=None, passport_number=VALID_PASSPORT).status_code == 201
-    response = _register(
-        client, email="other@example.com", cpf=None, passport_number=VALID_PASSPORT
-    )
+    assert _register(client, cpf=None, passportNumber=VALID_PASSPORT).status_code == 201
+    response = _register(client, email="other@example.com", cpf=None, passportNumber=VALID_PASSPORT)
     assert response.status_code == 409
 
 
@@ -170,7 +182,7 @@ def test_register_concurrent_same_email_only_one_persists(client, sessionfactory
     """SC-002 (edge case): two near-simultaneous payloads, same email —
     exactly one persists, the other gets 409."""
     first = _register(client, email="race@example.com")
-    second = _register(client, email="race@example.com", cpf=None, passport_number="QQ777777")
+    second = _register(client, email="race@example.com", cpf=None, passportNumber="QQ777777")
     succeeded = [r for r in (first, second) if r.status_code == 201]
     conflicts = [r for r in (first, second) if r.status_code == 409]
     assert len(succeeded) == 1, (first.status_code, second.status_code)

@@ -40,7 +40,7 @@ def test_me_without_token_is_401(client: TestClient) -> None:
 
 def test_me_with_admin_token_returns_admin_identity(client: TestClient, seeded_admin: int) -> None:
     tokens = _login_as_admin(client)
-    response = client.get(ME_URL, headers={"Authorization": f"Bearer {tokens['access_token']}"})
+    response = client.get(ME_URL, headers={"Authorization": f"Bearer {tokens['accessToken']}"})
     assert response.status_code == 200
     body = response.json()
     assert body == {"username": "admin.panel", "role": "admin"}
@@ -50,7 +50,7 @@ def test_me_with_employee_token_returns_employee_identity(
     client: TestClient, seeded_admin: int, seeded_employee: int
 ) -> None:
     tokens = _login_as_employee(client)
-    response = client.get(ME_URL, headers={"Authorization": f"Bearer {tokens['access_token']}"})
+    response = client.get(ME_URL, headers={"Authorization": f"Bearer {tokens['accessToken']}"})
     assert response.status_code == 200
     assert response.json() == {"username": "maria.panel", "role": "employee"}
 
@@ -60,7 +60,7 @@ def test_employee_token_is_403_on_admin_endpoints(
 ) -> None:
     """RBAC: employees cannot manage employees/panel resources (FR-008,
     FR-009 dependency-level coverage; contracts/employees.md)."""
-    employee_headers = {"Authorization": f"Bearer {_login_as_employee(client)['access_token']}"}
+    employee_headers = {"Authorization": f"Bearer {_login_as_employee(client)['accessToken']}"}
 
     assert (
         client.post(
@@ -80,7 +80,7 @@ def test_employee_token_is_403_on_admin_endpoints(
 
 
 def test_admin_token_is_allowed_on_admin_endpoints(client: TestClient, seeded_admin: int) -> None:
-    admin_headers = {"Authorization": f"Bearer {_login_as_admin(client)['access_token']}"}
+    admin_headers = {"Authorization": f"Bearer {_login_as_admin(client)['accessToken']}"}
 
     created = client.post(
         EMPLOYEES_URL,

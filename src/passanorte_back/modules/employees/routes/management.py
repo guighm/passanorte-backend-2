@@ -52,7 +52,7 @@ def post_employee(
         )
     except DuplicateUsernameError as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
-    return EmployeeCreatedResponse(
+    return EmployeeCreatedResponse.from_internal(
         id=employee.id,
         name=employee.name,
         username=employee.username,

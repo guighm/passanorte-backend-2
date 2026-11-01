@@ -53,7 +53,7 @@ def post_login(
         tokens: SessionTokens = login(session, username=payload.username, password=payload.password)
     except InvalidCredentialsError as error:
         raise _unauthorized() from error
-    return SessionResponse(
+    return SessionResponse.from_internal(
         access_token=tokens.access_token,
         refresh_token=tokens.refresh_token,
         token_type="bearer",
@@ -71,7 +71,7 @@ def post_refresh(
         tokens: SessionTokens = refresh(session, refresh_token=payload.refresh_token)
     except InvalidRefreshTokenError as error:
         raise _unauthorized() from error
-    return SessionResponse(
+    return SessionResponse.from_internal(
         access_token=tokens.access_token,
         refresh_token=tokens.refresh_token,
         token_type="bearer",

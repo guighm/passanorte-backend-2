@@ -24,11 +24,11 @@ def _register_and_login(client: TestClient, email: str = "ana@example.com") -> s
     response = client.post(
         REGISTER_URL,
         json={
-            "first_name": "Ana",
-            "last_name": "Silva",
-            "country_of_origin": "Brasil",
+            "firstName": "Ana",
+            "lastName": "Silva",
+            "countryOfOrigin": "Brasil",
             "cpf": "123.456.789-09",
-            "passport_number": None,
+            "passportNumber": None,
             "phone": "+5511999999999",
             "email": email,
             "password": "long-enough-password-1",
@@ -38,7 +38,7 @@ def _register_and_login(client: TestClient, email: str = "ana@example.com") -> s
     pair = client.post(
         LOGIN_URL, json={"email": email, "password": "long-enough-password-1"}
     ).json()
-    return pair["access_token"]
+    return pair["accessToken"]
 
 
 @pytest.fixture
@@ -55,7 +55,7 @@ def test_list_categories_matches_location_config(client, seeded_admin: int) -> N
         json={"username": "admin.panel", "password": TEST_ADMIN_PASSWORD},
     ).json()
     response = client.get(
-        CATEGORIES_URL, headers={"Authorization": f"Bearer {pair['access_token']}"}
+        CATEGORIES_URL, headers={"Authorization": f"Bearer {pair['accessToken']}"}
     )
     assert response.status_code == 200
 
@@ -159,7 +159,7 @@ def test_put_interests_by_admin_or_employee_is_403(
     ).json()
     response = client.put(
         MY_INTERESTS_URL,
-        headers={"Authorization": f"Bearer {admin_pair['access_token']}"},
+        headers={"Authorization": f"Bearer {admin_pair['accessToken']}"},
         json={"interests": ["nature"]},
     )
     assert response.status_code == 403
@@ -169,6 +169,30 @@ def test_put_interests_by_admin_or_employee_is_403(
         json={"username": "maria.panel", "password": "synthetic-employee-password-1"},
     ).json()
     response = client.get(
-        MY_INTERESTS_URL, headers={"Authorization": f"Bearer {pair['access_token']}"}
+        MY_INTERESTS_URL, headers={"Authorization": f"Bearer {pair['accessToken']}"}
     )
     assert response.status_code == 403
+
+
+def test_put_interests_rejects_snake_case_and_unknown_keys(client, tourist_token: str) -> None:
+    """SC-002 per-endpoint coverage: PUT /tourists/me/interests is strict."""
+    headers = {"Authorization": f"Bearer {tourist_token}"}
+    snake = client.put(
+        MY_INTERESTS_URL,
+        headers=headers,
+        json={"interests": ["nature"], "favorite_food": "pão de queijo"},
+    )
+    assert snake.status_code == 422
+    keys = [item["key"] for item in snake.json()["details"]]
+    assert "favorite_food" in keys
+    unknown = client.put(
+        MY_INTERESTS_URL,
+        headers=headers,
+        json={"interests": ["nature"], "favoriteFoods": ["pão de queijo"]},
+    )
+    assert unknown.status_code == 422
+    keys = [item["key"] for item in unknown.json()["details"]]
+    assert "favoriteFoods" in keys
+    # valid selection still passes (no partial-application residue)
+    ok = client.put(MY_INTERESTS_URL, headers=headers, json={"interests": ["nature"]})
+    assert ok.status_code == 200

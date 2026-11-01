@@ -83,7 +83,7 @@ def get_tourist_profile(session: Session, tourist: Tourist) -> TouristProfileRes
     """
     configured = set(configured_keys())
     interests = [key for key in list_for_tourist(session, tourist.id) if key in configured]
-    return TouristProfileResponse(
+    return TouristProfileResponse.from_internal(
         id=tourist.id,
         first_name=tourist.first_name,
         last_name=tourist.last_name,

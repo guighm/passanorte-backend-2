@@ -22,15 +22,16 @@
 | 002 | Autenticação e Controle de Acesso | `auth`, `employees` | RF01–RF05, RF23, RNF09, RNF10 | ✅ Implementada |
 | 003 | Turistas e Perfil | `tourists` | RF22, RF24, RF25, RNF08 | ✅ Implementada |
 | 004 | Containerização da API e Ambiente Docker | infra (Docker/Compose) | RNF17, RNF15 | — |
-| 005 | Pontos Turísticos | `tourist_spots` | RF11–RF15, RF27 | — |
-| 006 | Eventos | `events` | RF16, RF17 | — |
-| 007 | Rotas Turísticas e Gamificação | `gamification` | RF18–RF20, RF29, RF30, RF34–RF36 | — |
-| 008 | Visitação Geolocalizada | `visitation` | RF31–RF33, RNF14 | — |
-| 009 | Resgate de Brindes | `gamification` | RF21 | — |
-| 010 | Descoberta no Passaporte | `tourist_spots` | RF26, RF28, RNF12, RNF18 | — |
-| 011 | Dashboard e Insights | `dashboard` | RF06–RF10 | — |
-| 012 | Notificações por Interesse | `notifications` | RF37 | — |
-| 013 | Chatbot de Planejamento (RAG) | `chatbot` | RF38, RF39 | — |
+| 005 | Contrato HTTP em camelCase (case conforme frontend TS) | infra transversal (`core/`) + módulos existentes | — (transversal, contrato JSON) | — |
+| 006 | Pontos Turísticos | `tourist_spots` | RF11–RF15, RF27 | — |
+| 007 | Eventos | `events` | RF16, RF17 | — |
+| 008 | Rotas Turísticas e Gamificação | `gamification` | RF18–RF20, RF29, RF30, RF34–RF36 | — |
+| 009 | Visitação Geolocalizada | `visitation` | RF31–RF33, RNF14 | — |
+| 010 | Resgate de Brindes | `gamification` | RF21 | — |
+| 011 | Descoberta no Passaporte | `tourist_spots` | RF26, RF28, RNF12, RNF18 | — |
+| 012 | Dashboard e Insights | `dashboard` | RF06–RF10 | — |
+| 013 | Notificações por Interesse | `notifications` | RF37 | — |
+| 014 | Chatbot de Planejamento (RAG) | `chatbot` | RF38, RF39 | — |
 
 > `*` RNF01/RNF02/RNF07 (sistema distribuído/microsserviços): **deliberadamente
 > adaptados** nesta fase. Ver `docs/CONSTITUTION.md` — o monolito modular
@@ -93,7 +94,7 @@ Passaporte (RF23); visualização e edição dos próprios dados (RF24); seleç�
 categorias de interesse para personalização (RF25); criptografia de dados
 sensíveis conforme LGPD (RNF08).
 
-**Fora de escopo:** endpoints de descoberta (spec 010), gamificação (spec 007).
+**Fora de escopo:** endpoints de descoberta (spec 011), gamificação (spec 008).
 
 ### Prompt
 
@@ -132,6 +133,38 @@ Containerizar a API do PassaNorte (FastAPI, Python 3.13, uv) e criar o ambiente 
 
 ---
 
+## 005 — Convenção de Contrato da API (JSON camelCase)
+
+**Escopo:** padronização transversal do contrato HTTP da API para espelhar o
+frontend em TypeScript — e padrão global para todas as specs seguintes
+(006–014). O JSON trocado com o frontend passa a ser 100% **camelCase**, tanto
+na entrada quanto na saída (ex.: `accessToken`, `firstName`, `touristSpot`), via
+alias de serialização global Pydantic (`alias_generator` to-camel, base comum
+de schemas em `core/`) aplicado a todos os schemas de todos os módulos —
+conversão apenas na fronteira HTTP: identificadores Python internos e colunas
+de banco permanecem snake_case (PEP 8). A API **aceita apenas chaves
+camelCase** em corpos de requisição: chaves snake_case ou desconhecidas
+resultam em 422 com mensagem clara; respostas, payloads de erro e estruturas
+aninhadas também em camelCase. Nomes de tipos/schemas (classes Pydantic e os
+tipos/interface TypeScript gerados a partir do OpenAPI/Swagger) ficam em
+**PascalCase**, refletindo o frontend TS. Migração retroativa dos endpoints já
+implementados (auth, employees, tourists — specs 002–004), com atualização dos
+testes de contrato e do frontend em conjunto.
+
+**Fora de escopo:** mudança de caminhos HTTP (`/api/v1/...` em kebab-case,
+conforme `DOMAIN_MODULES`); lógica de negócio; migrations (colunas do banco
+permanecem snake_case).
+
+### Prompt
+
+```text
+Implementar a convenção de contrato JSON camelCase da API PassaNorte como infra transversal do monolito modular (docs/CONSTITUTION.md), em core/ + adaptação dos módulos auth, employees e tourists das specs 002-004. Requisitos: (a) em core/, base comum de schemas (Pydantic BaseModel com alias_generator camelCase) aplicada a TODOS os schemas de todos os módulos: entrada e saída HTTP em JSON 100% camelCase (ex.: accessToken, firstName, touristSpot), refletindo os tipos TypeScript do frontend, com conversão apenas na borda HTTP — identificadores Python internos e colunas de banco permanecem snake_case (PEP 8); (b) a API ACEITA APENAS chaves camelCase: corpo com chave snake_case ou desconhecida resulta em 422 com mensagem clara; payloads de erro, respostas de exceção e estruturas aninhadas também em camelCase; (c) nomes de classes de schema/DTO (e os tipos gerados no OpenAPI/Swagger) em PascalCase, servindo o Swagger como fonte para os tipos TypeScript do frontend; (d) migração retroativa dos endpoints já implementados (specs 002-004: auth, employees, tourists) para o novo contrato, atualizando os testes de contrato existentes; (e) sem alterar caminhos de rotas (/api/v1/... em kebab-case) nem lógica de negócio. Critério de aceitação: teste transversal que varre respostas de todos os endpoints e falha se qualquer chave snake_case aparecer; testes de contrato demonstrando entrada camelCase aceita, entrada snake_case rejeitada (422) e os endpoints de auth/employees/tourists validados sob o novo contrato retroativamente.
+```
+
+---
+
+## 006 — Pontos Turísticos
+
 **Escopo:** CRUD de pontos turísticos com nome, descrição, categoria,
 localização lat/lng (RF11, RF12); associação a uma ou mais categorias
 pré-definidas (RF13); cronograma de dias e horários de funcionamento (RF14);
@@ -140,7 +173,7 @@ integração com Google Maps/OSM para dados de localização (RNF18, no contrata
 de dados, não de frontend); auditoria de ações administrativas (RNF19);
 endpoint de detalhes do ponto usado pelo Passaporte (RF27).
 
-**Fora de escopo:** ordenação por relevância (spec 010), eventos (spec 006).
+**Fora de escopo:** ordenação por relevância (spec 011), eventos (spec 007).
 
 ### Prompt
 
@@ -150,24 +183,24 @@ Implementar Gerenciamento de Pontos Turísticos do PassaNorte (backend FastAPI, 
 
 ---
 
-## 006 — Eventos
+## 007 — Eventos
 
 **Escopo:** cadastro de eventos associados a um ponto turístico com data,
 descrição e preço do ingresso (RF16); edição e remoção (RF17); eventos
-aparecem nos detalhes do ponto (RF26 usa data, spec 010).
+aparecem nos detalhes do ponto (RF26 usa data, spec 011).
 
-**Fora de escopo:** recomendação por eventos recentes (spec 010), notificações
-de novo evento (spec 012), custo em roteiro do chatbot (spec 013).
+**Fora de escopo:** recomendação por eventos recentes (spec 011), notificações
+de novo evento (spec 013), custo em roteiro do chatbot (spec 014).
 
 ### Prompt
 
 ```text
-Implementar Gerenciamento de Eventos do PassaNorte (backend FastAPI, módulo events), protegido por RBAC de administrador (spec 002). Requisitos: RF16 — administrador cadastra evento associado a um ponto turístico existente, informando data de ocorrência, descrição e preço do ingresso; RF17 — edição e remoção de evento. Regras: evento só referencia ponto não permanentemente fechado (bloqueio com 409); listagem de eventos por ponto e por faixa de datas para o painel; endpoints incluídos na resposta de detalhes do ponto (RF27 da spec 005). RNF19 — audit logs. Preço do ingresso armazenado como valor monetário explícito (necessário depois para o chatbot, RF39). Critério de aceitação: testes de contrato do CRUD (incluindo 404 em ponto inexistente e 409 em ponto permanentemente fechado) e teste de integração criando ponto → criando evento → listando por ponto e por data.
+Implementar Gerenciamento de Eventos do PassaNorte (backend FastAPI, módulo events), protegido por RBAC de administrador (spec 002). Requisitos: RF16 — administrador cadastra evento associado a um ponto turístico existente, informando data de ocorrência, descrição e preço do ingresso; RF17 — edição e remoção de evento. Regras: evento só referencia ponto não permanentemente fechado (bloqueio com 409); listagem de eventos por ponto e por faixa de datas para o painel; endpoints incluídos na resposta de detalhes do ponto (RF27 da spec 006). RNF19 — audit logs. Preço do ingresso armazenado como valor monetário explícito (necessário depois para o chatbot, RF39). Critério de aceitação: testes de contrato do CRUD (incluindo 404 em ponto inexistente e 409 em ponto permanentemente fechado) e teste de integração criando ponto → criando evento → listando por ponto e por data.
 ```
 
 ---
 
-## 007 — Rotas Turísticas e Gamificação
+## 008 — Rotas Turísticas e Gamificação
 
 **Escopo (coração do produto):** cadastro de rota composta por lista ordenada de
 pontos turísticos e brinde associado à conclusão (RF18); edição/remoção (RF19);
@@ -177,45 +210,45 @@ controle de estoque dos brindes por rota (RF20); inscrição do turista em rota
 insígnia digital na conclusão (RF35); código único de resgate na conclusão
 (RF36).
 
-**Fora de escopo:** validação GPS da visitação (spec 008), resgate pelo
-funcionário (spec 009).
+**Fora de escopo:** validação GPS da visitação (spec 009), resgate pelo
+funcionário (spec 010).
 
 **Nota:** a interface de serviço de RF34 (atualização de progresso a partir de
-visitação) é o contrato que o módulo `visitation` consumirá na spec 008.
+visitação) é o contrato que o módulo `visitation` consumirá na spec 009.
 
 ### Prompt
 
 ```text
-Implementar Rotas Turísticas e Gamificação do PassaNorte (backend FastAPI, módulo gamification), o núcleo do produto (docs/CONSTITUTION.md: monolito modular). Requisitos: RF18 — administrador cadastra rota turística composta por lista de pontos turísticos e brinde associado à conclusão; RF19 — edição e remoção de rota; RF20 — cadastro e controle da quantidade em estoque de cada brinde vinculado a uma rota, com reservas idempotentes (nenhuma concessão sem estoque); RF29 — turista se inscreve em rota disponível, iniciando o acompanhamento de progresso; RF30 — sistema exibe progresso da rota: pontos já visitados e pendentes, com taxa de conclusão calculada; RF34 — ao registrar a visitação de um ponto (entrada vinda via serviço, ainda sem GPS — spec 008 conectará), o sistema atualiza o progresso de TODAS as rotas em andamento do turista que contêm esse ponto; RF35 — ao concluir todos os pontos da rota, o turista recebe insígnia digital de conclusão; RF36 — na conclusão, o sistema gera código de resgate de uso ÚNICO, seguro, não previsível, para retirada do brinde quando o turista desejar e o ponto permitir. Regras de domínio: inscrição duplicada bloqueada (409); código único não reutilizável; estoque nunca fica negativo; remoção de rota preserva histórico de turistas ativos conforme decisão registrada na spec. Expor interface de serviço pública `register_spot_visit(tourist_id, tourist_spot_id)` para o módulo visitation consumir (fronteira de domínio; identificadores em inglês — constituição, Princípio VII). Critério de aceitação: teste de integração completo — inscrever → visita de todos os pontos → insígnia emitida → código único gerado → segunda tentativa de uso do código falha; teste de concorrência/estoque insuficiente bloqueando conclusão do resgate.
+Implementar Rotas Turísticas e Gamificação do PassaNorte (backend FastAPI, módulo gamification), o núcleo do produto (docs/CONSTITUTION.md: monolito modular). Requisitos: RF18 — administrador cadastra rota turística composta por lista de pontos turísticos e brinde associado à conclusão; RF19 — edição e remoção de rota; RF20 — cadastro e controle da quantidade em estoque de cada brinde vinculado a uma rota, com reservas idempotentes (nenhuma concessão sem estoque); RF29 — turista se inscreve em rota disponível, iniciando o acompanhamento de progresso; RF30 — sistema exibe progresso da rota: pontos já visitados e pendentes, com taxa de conclusão calculada; RF34 — ao registrar a visitação de um ponto (entrada vinda via serviço, ainda sem GPS — spec 009 conectará), o sistema atualiza o progresso de TODAS as rotas em andamento do turista que contêm esse ponto; RF35 — ao concluir todos os pontos da rota, o turista recebe insígnia digital de conclusão; RF36 — na conclusão, o sistema gera código de resgate de uso ÚNICO, seguro, não previsível, para retirada do brinde quando o turista desejar e o ponto permitir. Regras de domínio: inscrição duplicada bloqueada (409); código único não reutilizável; estoque nunca fica negativo; remoção de rota preserva histórico de turistas ativos conforme decisão registrada na spec. Expor interface de serviço pública `register_spot_visit(tourist_id, tourist_spot_id)` para o módulo visitation consumir (fronteira de domínio; identificadores em inglês — constituição, Princípio VII). Critério de aceitação: teste de integração completo — inscrever → visita de todos os pontos → insígnia emitida → código único gerado → segunda tentativa de uso do código falha; teste de concorrência/estoque insuficiente bloqueando conclusão do resgate.
 ```
 
 ---
 
-## 008 — Visitação Geolocalizada
+## 009 — Visitação Geolocalizada
 
 **Escopo:** botão "marcar visitação" recebendo leitura de GPS do turista e
 ponto em que ele se declara (RF31); validação de presença via Haversine com
 raio de tolerância configurável por ponto (RF32, RNF14); registro do status
 "visitado" do ponto para o usuário (RF33); integração com gamificação via
-interface de serviço da spec 007 (RF34).
+interface de serviço da spec 008 (RF34).
 
-**Depende de:** 005 (pontos) e 007 (interface de serviço).
+**Depende de:** 006 (pontos) e 008 (interface de serviço).
 
 ### Prompt
 
 ```text
-Implementar Visitação Geolocalizada do PassaNorte (backend FastAPI, módulo visitation). Requisitos: RF31 — turista aciona 'marcar visitação' estando em um ponto turístico cadastrado, enviando coordenadas GPS atuais e o ponto em questão; RF32 — o sistema valida a presença por Haversine entre coordenadas do GPS e do ponto, considerando raio de tolerância configurável por ponto turístico (default global em settings), sem falsos positivos evidentes; RF33 — após validação, grava status 'visitado' do ponto para o turista, com registro imutável de visitação (timestamp, coordenadas validadas); RF34 — após gravar, chama o serviço público de gamificação que atualiza progresso das rotas vinculadas (interface da spec 007) — nunca escreve diretamente nas tabelas de outro módulo (fronteira de domínio do monolito modular). Repetição de visitação não gera novas atualizações de progresso (idempotente) mas pode ser registrada como visita adicional. RNF14 — precisão geoespacial. Critério de aceitação: testes unitários da fórmula de Haversine (casos exatos: dentro do raio, fora, borda, antípodas); teste de integração visitação válida → status gravado → progresso de rota atualizado; teste de visitação fora do raio rejeitada (409/422); teste de idempotência de visita repetida.
+Implementar Visitação Geolocalizada do PassaNorte (backend FastAPI, módulo visitation). Requisitos: RF31 — turista aciona 'marcar visitação' estando em um ponto turístico cadastrado, enviando coordenadas GPS atuais e o ponto em questão; RF32 — o sistema valida a presença por Haversine entre coordenadas do GPS e do ponto, considerando raio de tolerância configurável por ponto turístico (default global em settings), sem falsos positivos evidentes; RF33 — após validação, grava status 'visitado' do ponto para o turista, com registro imutável de visitação (timestamp, coordenadas validadas); RF34 — após gravar, chama o serviço público de gamificação que atualiza progresso das rotas vinculadas (interface da spec 008) — nunca escreve diretamente nas tabelas de outro módulo (fronteira de domínio do monolito modular). Repetição de visitação não gera novas atualizações de progresso (idempotente) mas pode ser registrada como visita adicional. RNF14 — precisão geoespacial. Critério de aceitação: testes unitários da fórmula de Haversine (casos exatos: dentro do raio, fora, borda, antípodas); teste de integração visitação válida → status gravado → progresso de rota atualizado; teste de visitação fora do raio rejeitada (409/422); teste de idempotência de visita repetida.
 ```
 
 ---
 
-## 009 — Resgate de Brindes
+## 010 — Resgate de Brindes
 
 **Escopo:** funcionário escaneia o código único gerado pelo turista para
 validar e conceder o brinde correspondente (RF21); baixa automática no estoque
 (RF20); apenas funcionários/admin têm acesso (RF03).
 
-**Depende de:** 007 (código, estoque), 002 (RBAC funcionário).
+**Depende de:** 008 (código, estoque), 002 (RBAC funcionário).
 
 ### Prompt
 
@@ -225,7 +258,7 @@ Implementar Resgate de Brindes do PassaNorte (backend FastAPI, módulo gamificat
 
 ---
 
-## 010 — Descoberta no Passaporte
+## 011 — Descoberta no Passaporte
 
 **Escopo:** tela inicial do Passaporte listando pontos ordenados por
 relevância — combina interesses do usuário, proximidade geográfica e eventos
@@ -233,17 +266,17 @@ recentes (RF26); links de redirecionamento para Google Maps, Uber e 99 a
 partir da localização do ponto (RF28); desempenho (RNF12); suporte a mapas
 Google/OSM (RNF18).
 
-**Depende de:** 003 (interesses), 005 (pontos), 006 (eventos).
+**Depende de:** 003 (interesses), 006 (pontos), 007 (eventos).
 
 ### Prompt
 
 ```text
-Implementar Descoberta no Passaporte do PassaNorte (backend FastAPI, módulos tourist_spots e gamification — endpoints públicos autenticados como turista, spec 002/003). Requisitos: RF26 — tela inicial exibe pontos turísticos ordenados por relevância considerando: interesses selecionados pelo turista (match de categorias), proximidade geográfica (distância Haversine a partir da localização atual enviada) e eventos recentes (eventos com data futura/próxima elevam o ponto); documentar a fórmula de score e permitir desempate determinístico; paginado. RF28 — além dos links para Google Maps (spec 005), gerar deep links para Uber e 99 a partir da localização do ponto, e endpoint que, recebendo a posição do turista, devolve os três links prontos (maps/de carro). RNF12 — consultas respondem em tempo hábil para mobile: implementar ordenação de forma consultável (no máximo O(n) por página, com índices apropriados), sem varredura cara por requisição; se necessário, cache configurável simples. RNF18 — suporte Google Maps ou OSM. Critério de aceitação: teste de contrato da listagem com ordenação por relevância (casos: usuário com interesses vs. sem interesses, sem posição enviada, com eventos vs. sem); teste dos geradores de deeplink para Google Maps, Uber e 99; teste de performance simples garantindo consulta paginada e ordenada dentro de limite definido na spec.
+Implementar Descoberta no Passaporte do PassaNorte (backend FastAPI, módulos tourist_spots e gamification — endpoints públicos autenticados como turista, spec 002/003). Requisitos: RF26 — tela inicial exibe pontos turísticos ordenados por relevância considerando: interesses selecionados pelo turista (match de categorias), proximidade geográfica (distância Haversine a partir da localização atual enviada) e eventos recentes (eventos com data futura/próxima elevam o ponto); documentar a fórmula de score e permitir desempate determinístico; paginado. RF28 — além dos links para Google Maps (spec 006), gerar deep links para Uber e 99 a partir da localização do ponto, e endpoint que, recebendo a posição do turista, devolve os três links prontos (maps/de carro). RNF12 — consultas respondem em tempo hábil para mobile: implementar ordenação de forma consultável (no máximo O(n) por página, com índices apropriados), sem varredura cara por requisição; se necessário, cache configurável simples. RNF18 — suporte Google Maps ou OSM. Critério de aceitação: teste de contrato da listagem com ordenação por relevância (casos: usuário com interesses vs. sem interesses, sem posição enviada, com eventos vs. sem); teste dos geradores de deeplink para Google Maps, Uber e 99; teste de performance simples garantindo consulta paginada e ordenada dentro de limite definido na spec.
 ```
 
 ---
 
-## 011 — Dashboard e Insights
+## 012 — Dashboard e Insights
 
 **Escopo:** mapa de calor com concentração de visitas por região/ponto (RF06);
 contador de acessos ao sistema em períodos configuráveis (RF07); ranking de
@@ -251,7 +284,7 @@ pontos turísticos por dia/mês/ano (RF08); distribuição de visitantes por pa�
 de origem (RF09); distribuição por interesses (RF10). Todo endpoint restrito a
 administrador (RF03 — funcionário não vê dashboard).
 
-**Depende de:** 005 (pontos), 008 (visitados), 003 (país/interesses), 002
+**Depende de:** 006 (pontos), 009 (visitados), 003 (país/interesses), 002
 (admin RBAC, contagem de acessos).
 
 ### Prompt
@@ -262,7 +295,7 @@ Implementar Dashboard e Insights do PassaNorte (backend FastAPI, módulo dashboa
 
 ---
 
-## 012 — Notificações por Interesse
+## 013 — Notificações por Interesse
 
 **Escopo:** turista se inscreve em interesses para receber notificações de
 novos eventos/pontos/rotas relacionados (RF37, RF25 base). No monolito: tabela
@@ -270,23 +303,23 @@ de notificações gerada por eventos de negócio (novo evento, novo ponto, nova
 rota) que casem com interesses do turista; entrega ao app por polling
 (pull/GET), sem push service nesta fase (RNF15).
 
-**Depende de:** 003 (interesses), 006 (eventos), 005, 007.
+**Depende de:** 003 (interesses), 007 (eventos), 006, 008.
 
 ### Prompt
 
 ```text
-Implementar Notificações por Interesse do PassaNorte (backend FastAPI, módulo notifications) no monolito modular. Requisitos: RF37 — turista se inscreve em interesses específicos para receber notificações relacionadas e também cancela a inscrição; quando um NOVO evento (spec 006), novo ponto turístico (spec 005) ou nova rota (spec 007) é cadastrado, gerar notificações para os turistas cujos interesses casem com as categorias do item (RFP25 como fonte de interesses). No monolito, a geração entra pelo serviço público de notifications (create_notification_for_interests) chamado pelos módulos emissores via interface de serviço — nunca escrevendo direto na tabela emissor; entrega ao app via endpoint GET de notificações não lidas/marcar como lida (polling), sem push nesta fase (RNF15 baixo custo). Conteúdo da notificação deve ser apresentável (título, descrição, tipo, referência ao item com ID para deep link). i18n-ready: título/descrição armazenados com possibilidade de localização futura (RNF16 low custo). Critério de aceitação: teste de integração — turista com interesse 'gastronomia' recebe notificação quando admin cria evento/ponto/rota com categoria 'gastronomia', e NÃO recebe quando categoria não casa; teste de marcar como lida; teste de cancelamento de inscrição.
+Implementar Notificações por Interesse do PassaNorte (backend FastAPI, módulo notifications) no monolito modular. Requisitos: RF37 — turista se inscreve em interesses específicos para receber notificações relacionadas e também cancela a inscrição; quando um NOVO evento (spec 007), novo ponto turístico (spec 006) ou nova rota (spec 008) é cadastrado, gerar notificações para os turistas cujos interesses casem com as categorias do item (RFP25 como fonte de interesses). No monolito, a geração entra pelo serviço público de notifications (create_notification_for_interests) chamado pelos módulos emissores via interface de serviço — nunca escrevendo direto na tabela emissor; entrega ao app via endpoint GET de notificações não lidas/marcar como lida (polling), sem push nesta fase (RNF15 baixo custo). Conteúdo da notificação deve ser apresentável (título, descrição, tipo, referência ao item com ID para deep link). i18n-ready: título/descrição armazenados com possibilidade de localização futura (RNF16 low custo). Critério de aceitação: teste de integração — turista com interesse 'gastronomia' recebe notificação quando admin cria evento/ponto/rota com categoria 'gastronomia', e NÃO recebe quando categoria não casa; teste de marcar como lida; teste de cancelamento de inscrição.
 ```
 
 ---
 
-## 013 — Chatbot de Planejamento (RAG)
+## 014 — Chatbot de Planejamento (RAG)
 
 **Escopo:** chatbot de IA generativa com RAG que monta roteiros personalizados
 em linguagem natural (RF38); considera custo dos ingressos, proximidade entre
 pontos, interesses do usuário e horários de funcionamento (RF39).
 
-**Depende de:** 005 (pontos/horários), 006 (eventos/preços), 003
+**Depende de:** 006 (pontos/horários), 007 (eventos/preços), 003
 (interesses).
 
 **Decisões a definir na spec:** provedor de LLM com free tier (RNF15);
