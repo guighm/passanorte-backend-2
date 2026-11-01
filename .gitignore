@@ -9,8 +9,8 @@ wheels/
 # Virtual environments
 .venv
 
-# Segredos e bancos locais — nunca versionados (FR-011)
+# Local secrets and databases — never committed (FR-011); the documented
+# example `.env.example` IS committed (spec 004 FR-015)
 .env
-.env.*
 *.db
 *.sqlite3

@@ -92,6 +92,47 @@ uv run ruff check . && uv run ruff format --check .  # qualidade
 
 Scripts `uv run passanorte-back` e `uv run dev` sobem o app (o `dev` com reload).
 
+## Ambiente de desenvolvimento com Docker Compose (feature 004)
+
+Pré-requisito único: **Docker** (Engine + Compose v2) — não é preciso Python,
+uv ou PostgreSQL locais.
+
+```bash
+cp .env.example .env                 # credenciais locais (placeholders de dev) — .env nunca é versionado
+docker compose up --build -d         # sobe db + api + dbgate (build da primeira vez)
+curl http://localhost:8000/health    # {"status":"ok","database":"ok"} — migrations já aplicadas
+```
+
+O que sobe:
+
+| Serviço | Porta (host) | Descrição |
+|---|---|---|
+| `db` | *não publicada* | PostgreSQL (imagem oficial), dados em volume nomeado |
+| `api` | `API_PORT` (padrão **8000**) | API FastAPI; `alembic upgrade head` roda **antes** do uvicorn; hot reload ativo (alterações em `src/` aparecem sem rebuild) |
+| `dbgate` | `DBGATE_PORT` (padrão **8080**) | Explorador visual do banco — abra `http://localhost:8080`: a conexão **já vem pré-carregada** (credenciais do `.env`), é só clicar nela e navegar pelas tabelas |
+
+Trocando de porta em caso de conflito no host: edite `API_PORT`/`DBGATE_PORT`
+no `.env` e reinsira com `docker compose up -d` (sem rebuild).
+
+Reinícios e dados:
+
+- `docker compose down` — para e remove containers; **os dados persistem** no
+  volume nomeado (recria-se o ambiente e o banco segue intacto; migrações
+  pendentes, se houver, são aplicadas idempotentemente ao subir).
+- `docker compose down -v` — **apaga** o volume de dados (uso deliberado para
+  começar do zero; o próximo `up` reexecuta toda a cadeia de migrações).
+- Trocou `POSTGRES_USER`/`POSTGRES_DB`? O volume só é inicializado uma
+  vez — para renomear o banco/usuário de um volume existente é preciso
+  `docker compose down -v` e subir de novo (o PostgreSQL inicializa o volume
+  uma única vez).
+
+Admin de alto nível (passo opcional, feature 002): com a stack de pé
+(`docker compose exec api create-admin`) — o script usa `ADMIN_USERNAME`/`ADMIN_PASSWORD`
+do `.env` e cria/atualiza a única conta bootstrap (RF01).
+
+Guia de validação ponta a ponta da feature:
+[specs/004-docker-compose-dev-env/quickstart.md](specs/004-docker-compose-dev-env/quickstart.md).
+
 ## Autenticação e acesso (feature 002-auth-rbac)
 
 Fluxo em resumo (contratos completos em
