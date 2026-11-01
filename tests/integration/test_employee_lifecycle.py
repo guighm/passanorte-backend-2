@@ -19,7 +19,7 @@ def admin_headers(client: TestClient) -> dict[str, str]:
     login = client.post(
         LOGIN_URL, json={"username": "admin.panel", "password": TEST_ADMIN_PASSWORD}
     )
-    return {"Authorization": f"Bearer {login.json()['access_token']}"}
+    return {"Authorization": f"Bearer {login.json()['accessToken']}"}
 
 
 def _new_employee(client: TestClient, headers: dict[str, str]) -> dict:
@@ -40,7 +40,7 @@ def test_lifecycle_create_edit_revoke_login_blocked(
     client: TestClient, seeded_admin: int, admin_headers: dict[str, str], audit_logs
 ) -> None:
     created = _new_employee(client, admin_headers)
-    initial_password = created["initial_password"]
+    initial_password = created["initialPassword"]
 
     # The employee logs in right after creation (role restricted).
     employee_login = _login(client, "maria.souza", initial_password)
@@ -66,7 +66,7 @@ def test_lifecycle_create_edit_revoke_login_blocked(
 
     live = client.get(
         "/api/v1/auth/me",
-        headers={"Authorization": f"Bearer {employee_login.json()['access_token']}"},
+        headers={"Authorization": f"Bearer {employee_login.json()['accessToken']}"},
     )
     assert live.status_code == 401
     assert _login(client, "maria.souza", initial_password).status_code == 401
@@ -84,7 +84,7 @@ def test_lifecycle_create_edit_revoke_login_blocked(
     assert new_login.status_code == 200
     reopened = client.get(
         "/api/v1/auth/me",
-        headers={"Authorization": f"Bearer {employee_login.json()['access_token']}"},
+        headers={"Authorization": f"Bearer {employee_login.json()['accessToken']}"},
     )
     assert reopened.status_code == 401  # pre-revocation session remains rejected
 
@@ -113,7 +113,7 @@ def test_lifecycle_username_update_flow(
     assert edited.status_code == 200
     assert edited.json()["username"] == "maria.silva"
     # The initial password still works for the renamed account.
-    assert _login(client, "maria.silva", created["initial_password"]).status_code == 200
+    assert _login(client, "maria.silva", created["initialPassword"]).status_code == 200
 
 
 def test_lifecycle_patch_status_revoked_is_422(

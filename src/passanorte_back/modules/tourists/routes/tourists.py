@@ -47,7 +47,7 @@ def post_tourist_login(
         tokens = tourist_login(session, email=payload.email, password=payload.password)
     except InvalidCredentialsError as error:
         raise _unauthorized() from error
-    return TouristSessionResponse(
+    return TouristSessionResponse.from_internal(
         access_token=tokens.access_token,
         refresh_token=tokens.refresh_token,
         token_type="bearer",
@@ -77,7 +77,7 @@ def post_tourist(
         )
     except TouristAlreadyRegisteredError as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
-    return TouristRegistered(
+    return TouristRegistered.from_internal(
         id=tourist.id,
         first_name=tourist.first_name,
         last_name=tourist.last_name,

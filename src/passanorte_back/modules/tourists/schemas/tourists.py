@@ -1,5 +1,9 @@
 """DTOs of the ``tourists`` module (contracts/tourists.md; T010/T019).
 
+All schemas inherit the shared ``ApiModel`` (spec 005 FR-008): JSON keys
+are camelCase (`firstName`, `countryOfOrigin`, `passportNumber`,
+`accessToken`…), Python attributes stay snake_case (PEP 8, FR-002).
+
 Request schemas carry field validators with the exact rules (research R6);
 responses NEVER expose a ``*_encrypted``/``*_lookup`` column or
 ``password_hash`` (SC-005) — registration returns only the non-sensitive
@@ -9,15 +13,14 @@ self/admin (controlled decryption — FR-006).
 
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+from pydantic import ConfigDict, EmailStr, Field, field_validator, model_validator
 
+from passanorte_back.core.schemas import ApiModel
 from passanorte_back.modules.tourists.schemas import field_rules
 
 
-class TouristCreateRequest(BaseModel):
+class TouristCreateRequest(ApiModel):
     """POST /tourists request (RF22; FR-001 — exactly one document)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     first_name: Annotated[str, Field(min_length=1, max_length=field_rules.TEXT_MAX_LENGTH)]
     last_name: Annotated[str, Field(min_length=1, max_length=field_rules.TEXT_MAX_LENGTH)]
@@ -62,10 +65,8 @@ class TouristCreateRequest(BaseModel):
         return self
 
 
-class TouristLoginRequest(BaseModel):
+class TouristLoginRequest(ApiModel):
     """POST /tourists/login request (RF23 — email is the credential)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     email: EmailStr
     password: Annotated[str, Field(min_length=1, max_length=200)]
@@ -76,7 +77,7 @@ class TouristLoginRequest(BaseModel):
         return field_rules.normalize_email(value)
 
 
-class TouristSessionResponse(BaseModel):
+class TouristSessionResponse(ApiModel):
     """Session pair of the tourist — same shape as the foundation's
     SessionResponse (contract) but owned by this module (no private
     cross-import — constitution rule 3)."""
@@ -88,7 +89,7 @@ class TouristSessionResponse(BaseModel):
     role: str
 
 
-class TouristRegistered(BaseModel):
+class TouristRegistered(ApiModel):
     """201 response: registration confirmation without sensitive values."""
 
     model_config = ConfigDict(from_attributes=True)
@@ -99,7 +100,7 @@ class TouristRegistered(BaseModel):
     country_of_origin: str
 
 
-class TouristProfileResponse(BaseModel):
+class TouristProfileResponse(ApiModel):
     """GET profile response (self/admin — controlled decryption, FR-006).
 
     Decrypted sensitive values appear ONLY here; never ``*_encrypted``/
@@ -118,11 +119,9 @@ class TouristProfileResponse(BaseModel):
     interests: list[str]
 
 
-class TouristUpdateRequest(BaseModel):
+class TouristUpdateRequest(ApiModel):
     """PATCH /tourists/{id} request — partial, no password field (out of
     scope); same field validations as the registration (contract)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     first_name: (
         Annotated[str, Field(min_length=1, max_length=field_rules.TEXT_MAX_LENGTH)] | None
@@ -166,31 +165,29 @@ class TouristUpdateRequest(BaseModel):
         return None if value is None else field_rules.normalize_email(value)
 
 
-class InterestCategory(BaseModel):
+class InterestCategory(ApiModel):
     """One configured category (RNF06 — key/label from location.json)."""
 
     key: str
     label: str
 
 
-class InterestCategoriesResponse(BaseModel):
+class InterestCategoriesResponse(ApiModel):
     """GET /interest-categories — exactly the configured categories."""
 
     categories: list[InterestCategory]
 
 
-class TouristInterestsResponse(BaseModel):
+class TouristInterestsResponse(ApiModel):
     """GET/PUT /me/interests — currently configured selection (no orphans,
     no duplicates)."""
 
     interests: list[str]
 
 
-class TouristInterestsUpdateRequest(BaseModel):
+class TouristInterestsUpdateRequest(ApiModel):
     """PUT /me/interests — the WHOLE selection (FR-010); keys validated
     against the configuration (422 naming the invalid one — FR-011)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     interests: Annotated[list[str], Field(min_length=0)]
 

@@ -26,11 +26,11 @@ def test_tourist_full_lifecycle_and_persistence_is_encrypted(client, sessionfact
     registered = client.post(
         "/api/v1/tourists",
         json={
-            "first_name": "Flow",
-            "last_name": "Turista",
-            "country_of_origin": "Brasil",
+            "firstName": "Flow",
+            "lastName": "Turista",
+            "countryOfOrigin": "Brasil",
             "cpf": CPF,
-            "passport_number": None,
+            "passportNumber": None,
             "phone": PHONE,
             "email": REGISTERED_EMAIL,
             "password": PASSWORD,
@@ -42,7 +42,7 @@ def test_tourist_full_lifecycle_and_persistence_is_encrypted(client, sessionfact
     # 2. Login (SC-003 step 2).
     pair = client.post(LOGIN_URL, json={"email": REGISTERED_EMAIL, "password": PASSWORD}).json()
     assert pair["role"] == "tourist"
-    headers = _bearer(pair["access_token"])
+    headers = _bearer(pair["accessToken"])
 
     # 3. GET /me returns the profile; foreign profile → 403 (SC-004 in flow).
     me = client.get(ME_URL, headers=headers).json()
@@ -55,11 +55,11 @@ def test_tourist_full_lifecycle_and_persistence_is_encrypted(client, sessionfact
     foreign = client.post(
         "/api/v1/tourists",
         json={
-            "first_name": "Other",
-            "last_name": "Turista",
-            "country_of_origin": "Brasil",
+            "firstName": "Other",
+            "lastName": "Turista",
+            "countryOfOrigin": "Brasil",
             "cpf": "111.444.777-35",
-            "passport_number": None,
+            "passportNumber": None,
             "phone": "+5521988887777",
             "email": "other@example.com",
             "password": PASSWORD,
@@ -72,8 +72,8 @@ def test_tourist_full_lifecycle_and_persistence_is_encrypted(client, sessionfact
     assert (
         client.patch(
             f"/api/v1/tourists/{tourist_id}",
-            headers=_bearer(other_pair["access_token"]),
-            json={"country_of_origin": "Hacked"},
+            headers=_bearer(other_pair["accessToken"]),
+            json={"countryOfOrigin": "Hacked"},
         ).status_code
         == 403
     )
@@ -81,7 +81,7 @@ def test_tourist_full_lifecycle_and_persistence_is_encrypted(client, sessionfact
     patch = client.patch(
         ME_URL.replace(ME_URL, f"/api/v1/tourists/{tourist_id}"),
         headers=headers,
-        json={"country_of_origin": "Argentina", "phone": "+541199999999"},
+        json={"countryOfOrigin": "Argentina", "phone": "+541199999999"},
     )
     assert patch.status_code == 204, patch.text
 
@@ -92,7 +92,7 @@ def test_tourist_full_lifecycle_and_persistence_is_encrypted(client, sessionfact
     assert interests == {"interests": ["gastronomy", "nature"]}
 
     me = client.get(ME_URL, headers=headers).json()
-    assert me["country_of_origin"] == "Argentina"
+    assert me["countryOfOrigin"] == "Argentina"
     assert me["phone"] == "+541199999999"
     assert me["interests"] == ["gastronomy", "nature"]
 

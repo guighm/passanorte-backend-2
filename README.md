@@ -192,3 +192,35 @@ armazenados **criptografados** (Fernet) com colunas irmã de lookup
 fica em bcrypt (RNF10).
 
 Scripts `uv run passanorte-back` e `uv run dev` sobem o app (o `dev` com reload).
+## Contrato JSON camelCase (feature 005)
+
+O contrato HTTP da API é **100% camelCase** — entradas e saídas, em qualquer
+nível de aninhamento, espelhando os tipos TypeScript do frontend (`accessToken`,
+`firstName`, `touristSpot`, `countryOfOrigin`). Nomes de classes de schema/DTO
+no Swagger são **PascalCase** (`TouristSessionResponse`, `ApiError`) e servem
+como fonte única para geração de tipos TS.
+
+Regras (fonte única: `specs/005-camelcase-json-contract/contracts/camelcase-json.md`):
+
+1. **Saída**: toda resposta JSON tem chaves camelCase. Internamente os
+   atributos Python e colunas de banco permanecem snake_case (PEP 8) — a
+   conversão acontece só na fronteira HTTP (base `ApiModel` em
+   `src/passanorte_back/core/schemas.py`).
+2. **Entrada estrita**: a API aceita **apenas** chaves camelCase declaradas —
+   `snake_case` ou chaves desconhecidas → **422** (`errorCode`:
+   `validation_error`) nomeando a chave recebida.
+3. **Erros unificados**: todo corpo de erro segue o schema `ApiError`
+   (`errorCode`, `message`, `details[]` com `key`/`message`), documentado no
+   Swagger.
+
+```json
+{
+  "errorCode": "validation_error",
+  "message": "Request body is invalid.",
+  "details": [{ "key": "first_name", "message": "Extra inputs are not permitted" }]
+}
+```
+
+A varredura de contrato (`tests/contract/test_camelcase_contract.py`) caminha
+por **todas** as rotas registradas e o documento OpenAPI inteiro e **falha**
+se qualquer chave com `_` aparecer em sucesso ou erro.

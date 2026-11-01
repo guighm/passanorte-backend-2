@@ -11,13 +11,15 @@ from tests.conftest import TEST_ADMIN_PASSWORD
 
 EMPLOYEES_URL = "/api/v1/employees"
 
+EMPLOYEE_VIEW_KEYS = {"id", "name", "username", "status", "createdAt", "updatedAt"}
+
 
 def _admin_headers(client: TestClient) -> dict[str, str]:
     login = client.post(
         "/api/v1/auth/login",
         json={"username": "admin.panel", "password": TEST_ADMIN_PASSWORD},
     )
-    token = login.json()["access_token"]
+    token = login.json()["accessToken"]
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -34,11 +36,11 @@ def test_create_employee_201_with_one_time_password(
     assert body["name"] == "Maria Souza"
     assert body["username"] == "maria.souza"  # case-insensitive canonical storage
     assert body["status"] == "active"
-    assert len(body["initial_password"]) >= 12
+    assert len(body["initialPassword"]) >= 12
     # The initial password is not retrievable afterwards (one-time view).
     detail = client.get(f"{EMPLOYEES_URL}/{body['id']}", headers=_admin_headers(client))
     assert detail.status_code == 200
-    assert "initial_password" not in detail.json()
+    assert "initialPassword" not in detail.json()
 
 
 def test_create_employee_no_plaintext_password_in_storage(
@@ -53,11 +55,11 @@ def test_create_employee_no_plaintext_password_in_storage(
 
     with sessionfactory_for() as session:
         employee = session.get(Employee, created["id"])
-        assert created["initial_password"] not in employee.password_hash
+        assert created["initialPassword"] not in employee.password_hash
         assert employee.password_hash.startswith("$2b$")
     # The password is never echoed in the audit trail either.
     for record in audit_logs.records:
-        assert created["initial_password"] not in record.getMessage()
+        assert created["initialPassword"] not in record.getMessage()
 
 
 def test_create_employee_duplicate_username_is_409(
@@ -111,13 +113,58 @@ def test_employee_list_and_detail_view_without_credentials(
     body = listing.json()
     assert body["total"] >= 1
     first = body["items"][0]
-    assert set(first) == {"id", "name", "username", "status", "created_at", "updated_at"}
+    assert set(first) == EMPLOYEE_VIEW_KEYS
 
     detail = client.get(f"{EMPLOYEES_URL}/{first['id']}", headers=headers)
     assert detail.status_code == 200
-    assert set(detail.json()) == {"id", "name", "username", "status", "created_at", "updated_at"}
+    assert set(detail.json()) == EMPLOYEE_VIEW_KEYS
+
+
+def test_create_employee_rejects_snake_case_and_unknown_keys(
+    client: TestClient, seeded_admin: int
+) -> None:
+    headers = _admin_headers(client)
+    snake = client.post(
+        EMPLOYEES_URL,
+        json={"name": "Ana", "username": "ana.xy", "initial_password": "hacked"},
+        headers=headers,
+    )
+    assert snake.status_code == 422
+    keys = [item["key"] for item in snake.json()["details"]]
+    assert "initial_password" in keys
+    unknown = client.post(
+        EMPLOYEES_URL,
+        json={"name": "Ana", "username": "ana.zy", "role": "admin"},
+        headers=headers,
+    )
+    assert unknown.status_code == 422
+    keys = [item["key"] for item in unknown.json()["details"]]
+    assert "role" in keys
 
 
 def test_employees_endpoints_without_token_are_401(client: TestClient) -> None:
     assert client.get(EMPLOYEES_URL).status_code == 401
     assert client.post(EMPLOYEES_URL, json={"name": "X", "username": "y.z"}).status_code == 401
+
+
+def test_patch_employee_rejects_snake_case_and_unknown_keys(
+    client: TestClient, seeded_admin: int, seeded_employee: int
+) -> None:
+    """SC-002 per-endpoint coverage: PATCH /employees/{id} is strict too."""
+    headers = _admin_headers(client)
+    snake = client.patch(
+        f"{EMPLOYEES_URL}/{seeded_employee}",
+        json={"name": "Nome Mantido", "initial_password": "hacked"},
+        headers=headers,
+    )
+    assert snake.status_code == 422
+    keys = [item["key"] for item in snake.json()["details"]]
+    assert "initial_password" in keys
+    unknown = client.patch(
+        f"{EMPLOYEES_URL}/{seeded_employee}",
+        json={"name": "Nome Mantido", "nickname": "n"},
+        headers=headers,
+    )
+    assert unknown.status_code == 422
+    keys = [item["key"] for item in unknown.json()["details"]]
+    assert "nickname" in keys
