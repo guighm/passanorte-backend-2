@@ -27,6 +27,9 @@ services:
   api:
     build: .
     image: passanorte-back:dev
+    # Build-only image: never pull it from a registry (docker compose pull
+    # would otherwise try and fail with "pull access denied")
+    pull_policy: never
     env_file: .env
     environment:
       # Compose network address always wins over the env_file copy (FR-008/iii;
