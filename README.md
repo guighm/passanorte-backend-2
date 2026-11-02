@@ -217,9 +217,37 @@ Módulo `tourist_spots` sob `/api/v1/tourist-spots` (contrato completo em
    dia (intervalos contíguos são válidos).
 5. **Detalhe público** (RF27/RNF18) — `GET /tourist-spots/{id}` **sem
    autenticação**: nome, descrição, categorias `{key, label}`, cronograma,
-   status (fechado continua visível), `events` (coleção vazia até o
-   milestone de eventos) e `mapLink` calculado em tempo de leitura — Google
-   Maps universal link, nunca armazenado.
+   status (fechado continua visível), `events` (eventos do módulo `events`
+   — coleção vazia quando o ponto não tem eventos) e `mapLink` calculado em
+   tempo de leitura — Google Maps universal link, nunca armazenado.
+
+## Eventos (feature 008-event-management)
+
+Módulo `events` sob `/api/v1/events` (contrato completo em
+[specs/008-event-management/contracts/events.md](specs/008-event-management/contracts/events.md)):
+
+1. **CRUD administrativo** (RF16/RF17) — `POST` (201), `PATCH /{id}`
+   (200, edição parcial, incluindo trocar o ponto associado com
+   revalidação), `DELETE /{id}` (204, remoção física) com RBAC de
+   administrador: sem token → 401, outro papel → 403, ponto/evento
+   desconhecido → 404, ponto permanentemente fechado → 409. Cada escrita
+   de admin registra exatamente uma linha de auditoria (`passanorte.audit`
+   — RNF19); patch vazio é no-op sem auditoria.
+2. **Listagem combinada** (FR-07/FR-08) — `GET
+   /events?spotId=&startDate=&endDate=` (admin): todos os filtros
+   opcionais e combináveis, faixa de datas inclusiva (`startDate` >
+   `endDate` → 422), sem paginação nesta versão.
+3. **Preço do ingresso** (RF39) — valor monetário exato: armazenado em
+   centavos inteiros (nunca float), contrato `ticketPrice` numérico com no
+   máximo 2 casas decimais e ≥ 0; `0` = evento gratuito.
+4. **Cascade na remoção do ponto** (FR-014) — remover um ponto turístico
+   elimina seus eventos na mesma transação (via função de serviço pública
+   do módulo `events`): nenhum evento órfão sobrevive em listagens ou no
+   detalhe público.
+5. **Detalhe público** (RF27) — os eventos do ponto são embutidos em
+   `GET /tourist-spots/{id}` **sem autenticação** (`events`: `id`,
+   `spotId`, `occurrenceDate`, `description`, `ticketPrice`, ordenados por
+   data); `[]` quando o ponto não tem eventos.
 
 ## Contrato JSON camelCase (feature 005)
 

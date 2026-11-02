@@ -64,9 +64,9 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
 
     tables_after_upgrade, versions_after_upgrade = _database_state(database_url)
 
-    # Feature tables (auth + employees + tourists + tourist_spots schema,
-    # data-model.md). Only the feature-owned tables + Alembic state — no
-    # other business table.
+    # Feature tables (auth + employees + tourists + tourist_spots schema +
+    # events, data-model.md). Only the feature-owned tables + Alembic
+    # state — no other business table.
     assert tables_after_upgrade == {
         "alembic_version",
         "admin_users",
@@ -77,12 +77,14 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
         "tourist_spots",
         "tourist_spot_categories",
         "tourist_spot_schedule_entries",
+        "events",
     }, tables_after_upgrade
-    assert versions_after_upgrade == ["0004_tourist_spots"]
+    assert versions_after_upgrade == ["0005_events"]
 
     _assert_auth_schema(database_url)
     _assert_tourists_schema(database_url)
     _assert_tourist_spots_schema(database_url)
+    _assert_events_schema(database_url)
 
     downgrade = _alembic(database_url, "downgrade", "base")
     assert downgrade.returncode == 0, downgrade.stdout + downgrade.stderr
@@ -106,8 +108,9 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
         "tourist_spots",
         "tourist_spot_categories",
         "tourist_spot_schedule_entries",
+        "events",
     }
-    assert versions_final == ["0004_tourist_spots"]
+    assert versions_final == ["0005_events"]
 
 
 def _assert_auth_schema(database_url: str) -> None:
@@ -278,6 +281,33 @@ def _assert_tourist_spots_schema(database_url: str) -> None:
             if on_unique
         }
         assert ("spot_id", "category_key") in unique_pairs, unique_pairs
+    finally:
+        conn.close()
+
+
+def _assert_events_schema(database_url: str) -> None:
+    """Feature 008 T001: columns per feature data-model §1 (exact-money
+    integer cents, FK to tourist spots with cascade)."""
+    import sqlite3
+
+    path = database_url.removeprefix("sqlite:///")
+    conn = sqlite3.connect(path)
+    try:
+        names = {row[1] for row in conn.execute("PRAGMA table_info(events)").fetchall()}
+        assert {
+            "id",
+            "spot_id",
+            "occurrence_date",
+            "description",
+            "ticket_price_cents",
+            "created_at",
+            "updated_at",
+        } <= names, names
+        foreign_keys = conn.execute("PRAGMA foreign_key_list(events)").fetchall()
+        targets = {(row[2], row[3], row[4]) for row in foreign_keys}
+        assert ("tourist_spots", "spot_id", "id") in targets, targets
+        cascade = any(row[6] == "CASCADE" for row in foreign_keys)
+        assert cascade, foreign_keys
     finally:
         conn.close()
 

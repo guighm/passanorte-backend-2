@@ -20,8 +20,12 @@ from sqlalchemy.orm import Session
 
 from passanorte_back.core.audit import record_action
 from passanorte_back.modules.tourist_spots import schemas as spot_schemas
-from passanorte_back.modules.tourist_spots.repositories.tourist_spots import (
+
+# Module-level re-export: part of the public interface for cross-module
+# consumers (feature 008 research R3) — never imported from repositories.
+from passanorte_back.modules.tourist_spots.repositories.tourist_spots import (  # noqa: F401
     STATUS_OPEN,
+    STATUS_PERMANENTLY_CLOSED,
     VALID_STATUSES,
     WEEKDAY_NAMES,
     WEEKDAYS,
@@ -261,10 +265,20 @@ def update_spot(
 
 
 def remove_spot(session: Session, *, actor: str, spot_id: int) -> None:
-    """Soft delete (R6): hides the spot everywhere; terminal in this milestone."""
+    """Soft delete (R6): hides the spot everywhere; terminal in this milestone.
+
+    The events cascade (feature 008 clarification 2 of session
+    2026-11-02, research R4): events cease to exist together with the
+    spot — the write crosses domains exclusively through the events
+    module's public service function in the SAME transaction, so no
+    orphaned event ever survives a listing (FR-014).
+    """
     spot = get_active_spot(session, spot_id)
     from datetime import UTC, datetime
 
+    from passanorte_back.modules.events.services import events as events_service
+
+    events_service.delete_spot_events(session, spot.id)
     spot.removed_at = datetime.now(UTC)
     record_action(
         actor=actor,
@@ -280,6 +294,18 @@ def get_active_spot(session: Session, spot_id: int) -> TouristSpot:
     if spot is None:
         raise SpotMissingError("tourist spot not found")
     return spot
+
+
+def get_active_spot_status(session: Session, spot_id: int) -> str:
+    """Operating status of an active spot, for cross-module consumers
+    (feature 008 research R3).
+
+    The sanctioned read seam of this module: other domains never touch
+    ``TouristSpot`` or its repositories — they call this function and
+    compare against the public ``STATUS_PERMANENTLY_CLOSED`` constant.
+    Raises ``SpotMissingError`` for unknown/removed spots (route → 404).
+    """
+    return get_active_spot(session, spot_id).status
 
 
 def list_spots_paged(
