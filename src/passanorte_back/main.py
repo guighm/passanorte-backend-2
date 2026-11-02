@@ -20,6 +20,7 @@ from passanorte_back.core.db import engine, ping_database
 from passanorte_back.core.error_handlers import register_error_handlers
 from passanorte_back.core.routers import register_routers
 from passanorte_back.core.schemas import ApiError
+from passanorte_back.core.tags import INFRASTRUCTURE_TAG, OPENAPI_TAGS_METADATA
 
 
 @asynccontextmanager
@@ -29,7 +30,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine.dispose()
 
 
-app = FastAPI(title="Passanorte API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(
+    title="Passanorte API",
+    version="0.1.0",
+    lifespan=lifespan,
+    openapi_tags=OPENAPI_TAGS_METADATA,  # feature 006 FR-006
+)
 register_routers(app)
 register_error_handlers(app)
 
@@ -44,7 +50,11 @@ def custom_openapi() -> dict[str, Any]:
     if app.openapi_schema:
         return app.openapi_schema
     schema = get_openapi(
-        title=app.title, version=app.version, description=app.description, routes=app.routes
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+        tags=app.openapi_tags,  # feature 006 FR-006 — custom hooks must re-pass it
     )
     error_schema = TypeAdapter(ApiError).json_schema(
         ref_template="#/components/schemas/{model}",
@@ -61,7 +71,7 @@ def custom_openapi() -> dict[str, Any]:
 app.openapi = custom_openapi  # type: ignore[method-assign]
 
 
-@app.get("/health")
+@app.get("/health", tags=[INFRASTRUCTURE_TAG])  # feature 006 FR-003
 def health() -> JSONResponse:
     """Health probe: 200 {ok, ok} or 503 {degraded, unavailable}."""
     if ping_database(engine):

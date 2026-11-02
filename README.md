@@ -224,3 +224,32 @@ Regras (fonte única: `specs/005-camelcase-json-contract/contracts/camelcase-jso
 A varredura de contrato (`tests/contract/test_camelcase_contract.py`) caminha
 por **todas** as rotas registradas e o documento OpenAPI inteiro e **falha**
 se qualquer chave com `_` aparecer em sucesso ou erro.
+
+## Tags do Swagger (feature 006)
+
+A documentação em `/docs` é organizada por tags, agrupando os endpoints por
+módulo de domínio. Vocabulário fixo:
+
+- **Tag registry** = a estrutura central em
+  `src/passanorte_back/core/tags.py` (`OPENAPI_TAGS_METADATA`,
+  `module_tag`, `INFRASTRUCTURE_TAG`) — única fonte de verdade, catalogado à
+  mão, never derivado mecanicamente de `DOMAIN_MODULES`.
+- **Catalog** = a lista renderizada no próprio documento OpenAPI (`tags`
+  no topo), que deve ser idêntica ao registry (nomes, descrições e ordem).
+
+Convenção:
+
+1. Uma tag por módulo canônico (10) + tag de infraestrutura `Health` —
+   exibidas na ordem canônica de `DOMAIN_MODULES`, `Health` por último.
+2. Tags são anexadas **só** em dois pontos: na criação dos routers
+   canônicos (`core/routers.py`, `tags=[module_tag(name)]`) e na rota
+   `GET /health` (`main.py`, `INFRASTRUCTURE_TAG`). Arquivos de rotas dos
+   módulos **nunca** escrevem string de tag.
+3. Todo endpoint recebe exatamente **uma** tag registrada. Endpoint sem
+   tag, com mais de uma ou com tag fora do registry é **erro de contrato**:
+   a varredura (`tests/contract/test_openapi_tags.py`) falha nomeando o
+   `METHOD /path` ofensor (enforcement apenas no suite, sem guarda em
+   runtime).
+4. Adicionar um módulo novo em `DOMAIN_MODULES` exige, no mesmo commit, sua
+   entrada no registry (`core/tags.py`) — o alinhamento 1:1 é cobrado por
+   teste.

@@ -2,10 +2,13 @@
 
 One ``APIRouter`` per module, prefix ``/api/v1/<name-with-hyphens>``
 (``_`` → ``-``), names taken from the canonical ``DOMAIN_MODULES`` list
-(``core/modules.py``). Registration is stable-ordered and unique: adding a
-module there is enough to mount it in the app (``register_routers`` in
-``main.py``). In the foundation the routers are empty — no business
-endpoint (FR-006/007); future feature contracts MUST reuse these prefixes.
+(``core/modules.py``) and tagged with the central registry tag
+(``core/tags.py``, feature 006 FR-003) at this single creation point —
+module route files never write a tag string. Registration is stable-ordered
+and unique: adding a module there is enough to mount it in the app
+(``register_routers`` in ``main.py``). In the foundation the routers are
+empty — no business endpoint (FR-006/007); future feature contracts MUST
+reuse these prefixes.
 
 ``/health`` and the documentation (``/docs``, ``/openapi.json``) live at the
 root, outside ``/api/v1`` (clarification Q4).
@@ -17,6 +20,7 @@ from typing import Final
 from fastapi import APIRouter, FastAPI
 
 from passanorte_back.core.modules import DOMAIN_MODULES
+from passanorte_back.core.tags import module_tag
 
 API_V1_PREFIX: Final = "/api/v1"
 
@@ -27,7 +31,8 @@ def module_prefix(module: str) -> str:
 
 
 MODULE_ROUTERS: Final[dict[str, APIRouter]] = {
-    name: APIRouter(prefix=module_prefix(name)) for name in DOMAIN_MODULES
+    name: APIRouter(prefix=module_prefix(name), tags=[module_tag(name)])
+    for name in DOMAIN_MODULES
 }
 
 
