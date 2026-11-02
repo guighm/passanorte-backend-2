@@ -1,5 +1,6 @@
 {
   "city": "Passa Quatro",
+  "city_timezone": "America/Sao_Paulo",
   "languages": [
     "pt-BR"
   ],
@@ -15,6 +16,18 @@
     {
       "key": "culture",
       "label": "Cultura"
+    },
+    {
+      "key": "leisure",
+      "label": "Lazer"
+    },
+    {
+      "key": "art",
+      "label": "Arte"
+    },
+    {
+      "key": "cinema",
+      "label": "Cinema"
     }
   ]
 }

@@ -57,11 +57,7 @@ class TestPerOperationSweep:
     """FR-004/FR-005, SC-001/SC-002: every operation, one registered tag."""
 
     def test_every_operation_is_tagged(self) -> None:
-        untagged = [
-            identifier
-            for identifier, tags in _operations(_openapi())
-            if not tags
-        ]
+        untagged = [identifier for identifier, tags in _operations(_openapi()) if not tags]
         assert not untagged, (
             f"untagged operations (fall into the Swagger default tag) — "
             f"declare their registry tag: {untagged}"
@@ -74,8 +70,7 @@ class TestPerOperationSweep:
             if tags and len(tags) != 1
         }
         assert not multi_tagged, (
-            f"operations must carry exactly one registry tag, got "
-            f"multiple: {multi_tagged}"
+            f"operations must carry exactly one registry tag, got multiple: {multi_tagged}"
         )
 
     def test_no_operation_uses_an_unregistered_tag(self) -> None:
@@ -86,8 +81,7 @@ class TestPerOperationSweep:
             if tags and set(tags) - registered
         }
         assert not unregistered, (
-            f"tags outside the central registry (core/tags.py): "
-            f"{sorted(unregistered)}"
+            f"tags outside the central registry (core/tags.py): {sorted(unregistered)}"
         )
 
     def test_operation_tags_match_the_registry_constant(self) -> None:
@@ -155,15 +149,13 @@ class TestRegistryAlignment:
             {
                 "name": "Employees",
                 "description": (
-                    "Employee management and benefit authorization "
-                    "(employees module)."
+                    "Employee management and benefit authorization (employees module)."
                 ),
             },
             {
                 "name": "Tourists",
                 "description": (
-                    "Tourist registration, login, profile and interests "
-                    "(tourists module)."
+                    "Tourist registration, login, profile and interests (tourists module)."
                 ),
             },
             {
@@ -179,45 +171,31 @@ class TestRegistryAlignment:
             },
             {
                 "name": "Gamification",
-                "description": (
-                    "Routes, achievements and reward codes (gamification "
-                    "module)."
-                ),
+                "description": ("Routes, achievements and reward codes (gamification module)."),
             },
             {
                 "name": "Visitation",
                 "description": (
-                    "Check-ins at tourist spots and route progress "
-                    "(visitation module)."
+                    "Check-ins at tourist spots and route progress (visitation module)."
                 ),
             },
             {
                 "name": "Dashboard",
                 "description": (
-                    "Aggregated metrics and rankings for administrators "
-                    "(dashboard module)."
+                    "Aggregated metrics and rankings for administrators (dashboard module)."
                 ),
             },
             {
                 "name": "Notifications",
-                "description": (
-                    "Push notifications and communication (notifications "
-                    "module)."
-                ),
+                "description": ("Push notifications and communication (notifications module)."),
             },
             {
                 "name": "Chatbot",
-                "description": (
-                    "Generative chatbot over registered content (chatbot "
-                    "module)."
-                ),
+                "description": ("Generative chatbot over registered content (chatbot module)."),
             },
             {
                 "name": "Health",
-                "description": (
-                    "Operational health of the API and its database "
-                    "connectivity."
-                ),
+                "description": ("Operational health of the API and its database connectivity."),
             },
         ]
         assert expected == OPENAPI_TAGS_METADATA, (

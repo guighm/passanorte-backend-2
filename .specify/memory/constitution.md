@@ -1,26 +1,42 @@
 <!--
 SYNC IMPACT REPORT
-- Version change: 1.0.0 → 1.1.0 (MINOR: new materially expanded guidance, no
-  principle removed or redefined incompatibly)
+- Version change: 1.1.0 → 1.2.0 (MINOR: materially expanded guidance and
+  structural alignment with the codebase as of 2026-11-02; no principle
+  removed or redefined incompatibly)
 - Ratified: 2026-10-30 (unchanged)
-- Last Amended: 2026-10-31
+- Last Amended: 2026-11-02
 - Modified principles:
-  - VII. Manutenibilidade e Consistência → expanded: English-only code naming
-    now NON-NEGOTIABLE (all identifiers, commit messages, comments/docstrings
-    in English; Portuguese terms translated to canonical English names before
-    entering code; data/user-facing text stays in Portuguese)
+  - I. API-Contract-First → expanded (features 005/006): camelCase JSON
+    contract now NON-NEGOTIABLE — every HTTP-bound schema inherits
+    `core.schemas.ApiModel` (snake_case Python, camelCase JSON, strict
+    border with `extra="forbid"`, no snake_case input); single unified
+    `ApiError` payload for every failure path; OpenAPI tags centralized
+    in `core/tags.py` (one tag per domain + `Health`), assigned only at
+    router creation (`core/routers.py`) — route files never write tag
+    strings
+  - II. Segurança e LGPD → expanded (feature 003): sensitive data uses the
+    shared field-crypto primitives in `core/crypto.py` (Fernet via env key
+    `SENSITIVE_DATA_KEY`; HKDF/HMAC-SHA256 `*_lookup` subkeys for
+    uniqueness/equality columns); the app refuses to start without
+    DATABASE_URL, JWT_SECRET, SENSITIVE_DATA_KEY
+  - VI. Portabilidade → expanded (feature 003): interest categories now
+    live in `config/location.json` alongside city/languages — pure data
 - Modified sections:
-  - Preamble (Monolito Modular Primeiro) → rule 2: canonical module list now
-    lives in `src/passanorte_back/core/modules.py` (`DOMAIN_MODULES`) —
-    single source of truth for router registration and boundary checking;
-    rule 4: explicit per-module layer layout (`routes/`, `services/`,
-    `repositories/`, `schemas/`) with shared infrastructure in
-    `src/passanorte_back/core/`
-  - Quality Gates → added gate: no Portuguese code identifiers; canonical
-    English naming per `DOMAIN_MODULES` in `core/modules.py`
+  - Preamble rule 2 (no procedural change) — canonical list remains
+    `DOMAIN_MODULES` in `src/passanorte_back/core/modules.py`
+  - Preamble rule 4 — shared infrastructure enumeration updated: core also
+    holds `crypto.py`, `schemas.py`, `error_handlers.py`, `tags.py`,
+    `security.py`
+  - Stack → Docker deployment is part of this phase (feature 004:
+    Dockerfile + compose.yaml); Alembic migrations exist (baseline +
+    auth + tourists)
+  - Quality Gates → reorganized test suite structure (unit / contract /
+    integration / smoke); boundary gate is enforced by AST in
+    `tests/smoke/test_boundaries.py` breaking the build; added gate: no
+    schema without `ApiModel` and no tag string outside `core/tags.py`
 - Added sections: none
 - Removed sections: none
-- Follow-up TODOs: none — all placeholders resolved
+- Follow-up TODOs: none
 - Traceability note: principles reference RFs/RNFs defined in
   docs/SYSTEM_REQUIREMENTS.md (RNF01–RNF20, RF01, RF03, RF38-39)
 -->
@@ -48,9 +64,14 @@ reescrita. Regras que decorrem disso:
    módulo (models, schemas, repositories privados).
 4. Cada módulo em `src/passanorte_back/modules/<domain>/` mantém sua própria
    área de camadas (`routes/`, `services/`, `repositories/`, `schemas/`);
-   a infraestrutura compartilhada (config, db, routers, audit, checagem de
-   fronteiras) vive em `src/passanorte_back/core/`. Não há
-   compartilhamento de tabelas entre domínios.
+   a infraestrutura compartilhada vive em `src/passanorte_back/core/`:
+   config (`config.py` + dados de localidade), db (`db.py`), routers
+   (`routers.py`), auditoria (`audit.py`), checagem de fronteiras por AST
+   (`boundaries.py`), criptografia de campos (`crypto.py`), schemas-base do
+   contrato HTTP (`schemas.py`), handlers de erro unificados
+   (`error_handlers.py`), registro de tags OpenAPI (`tags.py`) e primitivas
+   de segurança (`security.py`). Não há compartilhamento de tabelas entre
+   domínios.
 5. Toda escrita entre domínios (ex.: visitation atualizando progresso de
    gamification) passa por uma função de serviço do domínio dono dos dados,
    nunca por UPDATE direto em suas tabelas.
@@ -67,9 +88,26 @@ A API RESTful FastAPI é o único contrato: painel web (React) e aplicativo
 Passaporte (Kotlin) consomem os **mesmos endpoints** (RNF03, RNF05). Todo
 endpoint é definido por schema Pydantic (request/response) antes da
 implementação; OpenAPI/Swagger gerado automaticamente é a documentação de
-referência (docs/contracts). Frontends não integram lógica que a API não
-expõe. Nenhum endpoint privado sem RBAC: administrador tem acesso total;
-funcionário acessa apenas concessão de benefícios (RF03).
+referência — entregue exatamente como a API se comporta. Frontends não
+integram lógica que a API não expõe. Nenhum endpoint privado sem RBAC:
+administrador tem acesso total; funcionário acessa apenas concessão de
+benefícios (RF03).
+
+**Contrato JSON camelCase (NON-NEGOTIABLE)**: todo schema HTTP-bound em
+qualquer módulo herda `core.schemas.ApiModel` — atributos Python em
+snake_case (PEP 8), chaves JSON em camelCase com acrônimos em minúsculas
+(`user_cpf` → `userCpf`). A fronteira HTTP é estrita: `extra="forbid"` e
+`populate_by_name` desabilitado — chaves desconhecidas e snake_case são
+rejeitadas com 422. A conversão snake↔camel acontece apenas na fronteira
+HTTP, nunca espalhada pelo código. Todo caminho de falha expõe o payload
+único `core.schemas.ApiError` (`errorCode`, `message`, `details`) via
+`core.error_handlers` — nenhum endpoint inventa formato de erro próprio.
+
+**Tags OpenAPI centralizadas**: exatamente uma tag por módulo canônico
+(`DOMAIN_MODULES`) mais a tag de infraestrutura `Health`, registradas
+em `core/tags.py` (`OPENAPI_TAGS_METADATA`) — única fonte de verdade
+aplicada em `main.py`/`core.routers`; arquivos de rota nunca escrevem
+string de tag.
 
 ### II. Segurança e LGPD por Padrão
 
@@ -77,11 +115,17 @@ Autenticação exclusivamente por JWT com expiração e renovação controladas
 (RNF09). Senhas de administrador, funcionário e turista são sempre
 armazenadas com hash bcrypt/argon2 — nunca em texto plano (RNF10). Dados
 sensíveis (CPF, passaporte, telefone, e-mail) armazenados criptografados em
-conformidade com LGPD (RNF08). Ações administrativas críticas
-(cadastro/edição/remoção de pontos, eventos, funcionários) geram log de
-auditoria estruturado (RNF19). Credenciais de alto nível são geradas apenas
-por script, nunca hardcoded no código ou no repositório (RF01; segredos via
-variáveis de ambiente).
+conformidade com LGPD (RNF08), exclusivamente via primitivas compartilhadas
+de `core/crypto.py`: Fernet com chave de ambiente `SENSITIVE_DATA_KEY` e
+subchaves HMAC-SHA256 (HKDF, um contexto por campo) para as colunas de
+unicidade/igualdade (`*_lookup`) — nenhum valor sensível é persistido em
+texto claro e a mesma chave cobre criptografia e lookup. Ações
+administrativas críticas (cadastro/edição/remoção de pontos, eventos,
+funcionários) geram log de auditoria estruturado (RNF19). Credenciais de
+alto nível são geradas apenas por script (`create-admin`), nunca hardcoded
+no código ou no repositório (RF01; segredos via variáveis de ambiente). A
+aplicação se recusa a subir sem as credenciais essenciais (`DATABASE_URL`,
+`JWT_SECRET`, `SENSITIVE_DATA_KEY`), nomeando o campo ausente.
 
 ### III. Test-First (NON-NEGOTIABLE)
 
@@ -113,9 +157,10 @@ crescer por necessidade real demonstrada em teste.
 
 A adaptação do sistema para outra cidade/estado/país exige apenas troca de
 dados configuráveis (pontos, categorias, horários, idiomas) — zero
-reestruturação de código ou arquitetura (RNF06). Nomes de cidade,
-coordenadas raiz, categorias padrão e idiomas habilitados vivem em
-configuração/dados, não em lógica de código.
+reestruturação de código ou arquitetura (RNF06). Nome da cidade, coordenadas
+raiz, categorias de interesse padrão e idiomas habilitados vivem em
+dados (`config/location.json`) ou configuração, não em lógica de código —
+trocar de cidade/idiomas/categorias é editar JSON e reiniciar.
 
 ### VII. Manutenibilidade e Consistência
 
@@ -143,8 +188,11 @@ canônico em inglês (ex.: `employees`) antes de virar código.
 - **Mobile Passaporte**: Kotlin + Jetpack Compose, fora do escopo deste
   backend, mas define o contrato de API.
 - **Persistência**: banco relacional estruturado (RNF17) — PostgreSQL em
-  produção; SQLite em memória/arquivo para testes; SQLAlchemy como acesso a
-  dados; Alembic para migrations.
+  produção; SQLite em memória/arquivo para testes; SQLAlchemy 2.0 como
+  acesso a dados; Alembic para migrations (baseline + evoluções por
+  feature).
+- **Deploy desta fase**: containerizado (Dockerfile + compose.yaml) — um
+  processo, um banco, um deploy; sobe apenas após ping de banco saudável.
 - **Mapas**: Google Maps API ou OpenStreetMap (RNF18) — escolha por custo
   (open source preferido, RNF15).
 - **Chatbot**: IA generativa com RAG sobre os dados cadastrados (RF38-39) —
@@ -177,14 +225,21 @@ dados de idioma configuráveis).
 
 ### Quality Gates
 
-- Testes de contrato e integração do domínio passando.
+- Testes de contrato e integração do domínio passando. A suíte é organizada
+  em `tests/unit/`, `tests/contract/`, `tests/integration/` e
+  `tests/smoke/` (+ `test_migrations.py`).
 - `ruff check` sem erros.
 - Nenhuma senha em texto plano, nenhum dado sensível não criptografado, no
   código e nos testes.
-- Nenhum import cruzando a fronteira privada de outro módulo de domínio.
+- Nenhum import cruzando a fronteira privada de outro módulo de domínio —
+  verificado por AST (`core/boundaries.py` via `tests/smoke/`), quebra o
+  build em qualquer import ilícito.
 - Nenhum identificador de código em português: módulos, classes, funções,
   schemas, colunas e rotas seguem a nomenclatura canônica em inglês
   (`DOMAIN_MODULES` em `core/modules.py`).
+- Nenhum schema HTTP-bound sem herdar `ApiModel`; nenhuma string de tag
+  OpenAPI escrita fora de `core/tags.py`; nenhum payload de erro além de
+  `ApiError`.
 - Migrations Alembic revisadas quando houver mudança de schema.
 
 ## Governance
@@ -201,4 +256,4 @@ dados de idioma configuráveis).
 - Complexidade extra precisa justificação explícita no PR e é contestável
   em review (YAGNI).
 
-**Version**: 1.1.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-10-31
+**Version**: 1.2.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-11-02

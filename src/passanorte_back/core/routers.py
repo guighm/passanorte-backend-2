@@ -31,8 +31,7 @@ def module_prefix(module: str) -> str:
 
 
 MODULE_ROUTERS: Final[dict[str, APIRouter]] = {
-    name: APIRouter(prefix=module_prefix(name), tags=[module_tag(name)])
-    for name in DOMAIN_MODULES
+    name: APIRouter(prefix=module_prefix(name), tags=[module_tag(name)]) for name in DOMAIN_MODULES
 }
 
 

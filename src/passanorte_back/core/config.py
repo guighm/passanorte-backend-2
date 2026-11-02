@@ -15,6 +15,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from pydantic import AliasChoices, Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -30,9 +31,8 @@ class Settings(BaseSettings):
     Required (no default): ``database_url``, ``jwt_secret``,
     ``sensitive_data_key``. With default: ``jwt_ttl`` (3600 s),
     ``jwt_refresh_ttl`` (604800 s), ``gps_tolerance_radius_m``
-    (100.0), ``city_name``
-    and ``languages`` (from the location file), ``location_data_path``
-    (``config/location.json``).
+    (100.0), ``city_name``, ``city_timezone`` and ``languages`` (from the
+    location file), ``location_data_path`` (``config/location.json``).
     """
 
     model_config = SettingsConfigDict(
@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     jwt_refresh_ttl: int = 604800
     gps_tolerance_radius_m: float = 100.0
     city_name: str | None = None
+    city_timezone: str | None = None
     languages: list[str] | None = Field(
         default=None,
         validation_alias=AliasChoices("languages", "ENABLED_LANGUAGES"),
@@ -159,6 +160,32 @@ class Settings(BaseSettings):
                 )
             resolved.append({"key": key.strip(), "label": label.strip()})
         return resolved
+
+    def resolved_city_timezone(self) -> str:
+        """City timezone for dateless schedule times (feature 007, RNF06).
+
+        Environment override > location file (same precedence as city/
+        languages). The value must be a valid IANA timezone name — validated
+        with ``zoneinfo`` so an invalid configuration fails at startup, not
+        at the first read.
+        """
+        if self.city_timezone is not None:
+            key = self.city_timezone.strip()
+        else:
+            key = str(self._read_location_data().get("city_timezone", "")).strip()
+        if not key:
+            raise LocationDataError(
+                f"'city_timezone' missing or empty in the location data "
+                f"('{self.location_data_path}' or CITY_TIMEZONE override)."
+            )
+        try:
+            ZoneInfo(key)  # noqa: B018 — validation only
+        except Exception as error:  # zoneinfo raises several exception types
+            raise LocationDataError(
+                f"'city_timezone' '{key}' is not a valid IANA timezone in the "
+                f"location data ('{self.location_data_path}' or CITY_TIMEZONE override)."
+            ) from error
+        return key
 
 
 @lru_cache(maxsize=1)

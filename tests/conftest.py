@@ -43,6 +43,7 @@ def _test_settings_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
     monkeypatch.delenv("GPS_TOLERANCE_RADIUS_M", raising=False)
     monkeypatch.delenv("CITY_NAME", raising=False)
+    monkeypatch.delenv("CITY_TIMEZONE", raising=False)
     monkeypatch.delenv("ENABLED_LANGUAGES", raising=False)
     monkeypatch.delenv("LOCATION_DATA_PATH", raising=False)
     assert os.environ["DATABASE_URL"] == TEST_DATABASE_URL
@@ -56,6 +57,11 @@ def db_engine():
     from passanorte_back.modules.auth.repositories.admin_users import AdminUser  # noqa: F401
     from passanorte_back.modules.auth.repositories.auth_sessions import AuthSession  # noqa: F401
     from passanorte_back.modules.employees.repositories.employees import Employee  # noqa: F401
+    from passanorte_back.modules.tourist_spots.repositories.tourist_spots import (  # noqa: F401
+        TouristSpot,
+        TouristSpotCategory,
+        TouristSpotScheduleEntry,
+    )
     from passanorte_back.modules.tourists.repositories.tourist_interests import (  # noqa: F401
         TouristInterest,
     )

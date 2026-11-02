@@ -20,7 +20,8 @@ src/passanorte_back/
 │   └── modules.py       # lista canônica dos 10 módulos
 ├── modules/             # 10 módulos de domínio (auth/ … chatbot/), cada um
 │                        # com routes/ services/ repositories/ schemas/
-config/location.json     # dados de localidade (city, languages) — dados, não código
+config/location.json     # dados de localidade (city, city_timezone, languages,
+                         #   interest_categories) — dados, não código
 migrations/              # Alembic (baseline rev ``0001_baseline``)
 tests/                   # pytest: smoke + migrations
 ```
@@ -192,6 +193,34 @@ armazenados **criptografados** (Fernet) com colunas irmã de lookup
 fica em bcrypt (RNF10).
 
 Scripts `uv run passanorte-back` e `uv run dev` sobem o app (o `dev` com reload).
+## Pontos turísticos (feature 007-tourist-spots-management)
+
+Módulo `tourist_spots` sob `/api/v1/tourist-spots` (contrato completo em
+[specs/007-tourist-spots-management/contracts/tourist-spots.md](specs/007-tourist-spots-management/contracts/tourist-spots.md)):
+
+1. **CRUD administrativo** (RF11/RF12) — `POST` (201), `PATCH /{id}` (200,
+   edição parcial), `DELETE /{id}` (204, remoção lógica `removed_at`) com
+   RBAC de administrador: sem token → 401, outro papel → 403, alvo
+   desconhecido/removido → 404. Cada escrita de admin registra exatamente
+   uma linha de auditoria (`passanorte.audit` — RNF19).
+2. **Listagem** (RF15/FR-16) — `GET /tourist-spots?status=&page=&pageSize=`
+   (admin): filtro pelos três status (`open`, `temporarilyClosed`,
+   `permanentlyClosed`) e paginação (`pageSize` 1–100, padrão 20).
+3. **Categorias** (RF13/RNF06) — chaves validadas contra
+   `interest_categories` do `config/location.json` (≥ 1, todas catálogos);
+   novas categorias entram por **dados**, sem código. Payloads
+   administrativos carregam as chaves; o detalhe público resolve
+   `{key, label}` com label em português.
+4. **Cronograma** (RF14) — dias (`monday`–`sunday`) + intervalos
+   `HH:MM` puros (fuso canônico em `city_timezone` do `location.json`);
+   `opensAt` estritamente antes de `closesAt`, sem sobreposição no mesmo
+   dia (intervalos contíguos são válidos).
+5. **Detalhe público** (RF27/RNF18) — `GET /tourist-spots/{id}` **sem
+   autenticação**: nome, descrição, categorias `{key, label}`, cronograma,
+   status (fechado continua visível), `events` (coleção vazia até o
+   milestone de eventos) e `mapLink` calculado em tempo de leitura — Google
+   Maps universal link, nunca armazenado.
+
 ## Contrato JSON camelCase (feature 005)
 
 O contrato HTTP da API é **100% camelCase** — entradas e saídas, em qualquer
