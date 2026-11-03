@@ -169,9 +169,25 @@ def require_tourist(
     return user
 
 
+def require_staff(
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+) -> AuthenticatedUser:
+    """FastAPI dependency: staff routes (admin OR employee) — the prize
+    concession gate (feature 009 research R6; Q3). Tourist sessions and
+    anonymous requests get 403 (anonymous never reaches here — bearer
+    required by ``get_current_user``)."""
+    if user.account_type not in ("admin", "employee"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_FORBIDDEN_PERMISSION,
+        )
+    return user
+
+
 __all__ = [
     "AuthenticatedUser",
     "get_current_user",
     "require_admin",
+    "require_staff",
     "require_tourist",
 ]

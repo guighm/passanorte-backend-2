@@ -65,8 +65,8 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
     tables_after_upgrade, versions_after_upgrade = _database_state(database_url)
 
     # Feature tables (auth + employees + tourists + tourist_spots schema +
-    # events, data-model.md). Only the feature-owned tables + Alembic
-    # state — no other business table.
+    # events + gamification, data-model.md). Only the feature-owned tables +
+    # Alembic state — no other business table.
     assert tables_after_upgrade == {
         "alembic_version",
         "admin_users",
@@ -78,8 +78,16 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
         "tourist_spot_categories",
         "tourist_spot_schedule_entries",
         "events",
+        # gamification (feature 009):
+        "prizes",
+        "tourist_routes",
+        "route_spots",
+        "route_enrollments",
+        "spot_visits",
+        "completion_badges",
+        "redemption_codes",
     }, tables_after_upgrade
-    assert versions_after_upgrade == ["0005_events"]
+    assert versions_after_upgrade == ["0006_gamification"]
 
     _assert_auth_schema(database_url)
     _assert_tourists_schema(database_url)
@@ -109,8 +117,16 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
         "tourist_spot_categories",
         "tourist_spot_schedule_entries",
         "events",
+        # gamification (feature 009):
+        "prizes",
+        "tourist_routes",
+        "route_spots",
+        "route_enrollments",
+        "spot_visits",
+        "completion_badges",
+        "redemption_codes",
     }
-    assert versions_final == ["0005_events"]
+    assert versions_final == ["0006_gamification"]
 
 
 def _assert_auth_schema(database_url: str) -> None:

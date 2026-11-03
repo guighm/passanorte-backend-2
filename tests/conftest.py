@@ -58,6 +58,15 @@ def db_engine():
     from passanorte_back.modules.auth.repositories.auth_sessions import AuthSession  # noqa: F401
     from passanorte_back.modules.employees.repositories.employees import Employee  # noqa: F401
     from passanorte_back.modules.events.repositories.events import Event  # noqa: F401
+    from passanorte_back.modules.gamification.repositories.gamification import (  # noqa: F401
+        CompletionBadge,
+        Prize,
+        RedemptionCode,
+        RouteEnrollment,
+        RouteSpot,
+        SpotVisit,
+        TouristRoute,
+    )
     from passanorte_back.modules.tourist_spots.repositories.tourist_spots import (  # noqa: F401
         TouristSpot,
         TouristSpotCategory,

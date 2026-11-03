@@ -249,6 +249,41 @@ Módulo `events` sob `/api/v1/events` (contrato completo em
    `spotId`, `occurrenceDate`, `description`, `ticketPrice`, ordenados por
    data); `[]` quando o ponto não tem eventos.
 
+## Rotas turísticas e gamificação (feature 009-tourist-routes-gamification)
+
+Módulo `gamification` sob `/api/v1/gamification` (contrato completo em
+[specs/009-tourist-routes-gamification/contracts/gamification.md](specs/009-tourist-routes-gamification/contracts/gamification.md)):
+
+1. **Rotas administrativas** (RF18/RF19) — `POST /routes` (201, cria a
+   rota **e o brinde embutido** com estoque inicial; spots validados via
+   módulo tur), `PATCH /routes/{id}` (200, edição parcial de
+   nome/descrição/lista de spots — brinde é vinculado na criação, não
+   re-vinculável), `DELETE /routes/{id}` (204, **arquivamento**: para de
+   ser listada/inscrível, mas o histórico de inscritos, progresso,
+   insígnias e códigos fica intacto). RBAC de administrador (sem token →
+   401, outro papel → 403, rota/ponto desconhecido → 404, shape → 422);
+   uma linha de auditoria por escrita (RNF19).
+2. **Inscrição e progresso** (RF29/RF30) — `POST
+   /routes/{id}/enrollments` (turista; duplicada → 409), `GET
+   /enrollments` (minhas inscrições) e `GET /enrollments/{id}`
+   (progresso completo: spots visitados/pendentes + `completionRate`
+   0–100; insígnia e código quando concluída). A ordem de visita é
+   livre; progresso é derivado das visitas registradas.
+3. **Seam de visita (RF34)** — `register_spot_visit(tourist_id,
+   tourist_spot_id)` (função de serviço pública em
+   `modules/gamification/services`): uma visita atualiza **todas** as
+   rotas em andamento do turista que contêm o ponto, em uma chamada;
+   conclusão automática na última pendência, idempotente.
+4. **Recursos da conclusão** (RF35/RF36) — exatamente uma insígnia e um
+   código de resgate por turista-rota: código único e imprevisível (128
+   bits CSPRNG), sem expiração, de uso único (segundo uso → 409).
+5. **Estoque e concessão** (RF20) — `PATCH /prizes/{id}` (admin, ajuste
+   de estoque nunca negativo e nunca abaixo das reservas comprometidas) e
+   `POST /redemptions` (`require_staff`: funcionário **ou** admin) —
+   concessão física contra o código em um ponto informado, consumindo
+   exatamente uma unidade; estoque insuficiente → 409 com o código ainda
+   válido.
+
 ## Contrato JSON camelCase (feature 005)
 
 O contrato HTTP da API é **100% camelCase** — entradas e saídas, em qualquer
