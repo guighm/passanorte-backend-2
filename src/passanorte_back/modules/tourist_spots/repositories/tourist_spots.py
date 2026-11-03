@@ -56,6 +56,9 @@ class TouristSpot(Base):
     description: Mapped[str] = mapped_column(String(DESCRIPTION_LENGTH))
     latitude: Mapped[float] = mapped_column(Float)
     longitude: Mapped[float] = mapped_column(Float)
+    # Per-spot override of the presence radius in meters (feature 011). None
+    # falls back to the global default (``settings.gps_tolerance_radius_m``).
+    tolerance_radius_m: Mapped[float | None] = mapped_column(default=None)
     status: Mapped[str] = mapped_column(String(STATUS_LENGTH), default=STATUS_OPEN)
     removed_at: Mapped[datetime | None] = mapped_column(index=True, default=None)
     created_at: Mapped[datetime] = mapped_column(default=_utc_now)
@@ -108,6 +111,7 @@ def add_spot(
     latitude: float,
     longitude: float,
     status: str = STATUS_OPEN,
+    tolerance_radius_m: float | None = None,
 ) -> TouristSpot:
     spot = TouristSpot(
         name=name,
@@ -115,6 +119,7 @@ def add_spot(
         latitude=latitude,
         longitude=longitude,
         status=status,
+        tolerance_radius_m=tolerance_radius_m,
     )
     session.add(spot)
     session.flush()

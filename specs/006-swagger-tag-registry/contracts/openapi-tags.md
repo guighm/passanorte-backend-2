@@ -18,7 +18,7 @@ FR-008); only the `tags` arrays and the top-level catalog are added.
 | 4 | `Tourist Spots` | Registered tourist spots with coordinates, schedules and multilingual content (tourist_spots module). | domain |
 | 5 | `Events` | Cultural events and schedules (events module). | domain |
 | 6 | `Gamification` | Routes, achievements and reward codes (gamification module). | domain |
-| 7 | `Visitation` | Check-ins at tourist spots and route progress (visitation module). | domain |
+| 7 | `Visitation` | GPS-validated check-ins at tourist spots: mark visitation (RF31) with Haversine presence validation (RF32), the immutable visitation ledger (RF33) and visitation history/visited-spots projections (visitation module; feature 011). | domain |
 | 8 | `Dashboard` | Aggregated metrics and rankings for administrators (dashboard module). | domain |
 | 9 | `Notifications` | Push notifications and communication (notifications module). | domain |
 | 10 | `Chatbot` | Generative chatbot over registered content (chatbot module). | domain |

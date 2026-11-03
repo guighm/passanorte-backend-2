@@ -86,8 +86,10 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
         "spot_visits",
         "completion_badges",
         "redemption_codes",
+        # visitation (feature 011):
+        "visitations",
     }, tables_after_upgrade
-    assert versions_after_upgrade == ["0006_gamification"]
+    assert versions_after_upgrade == ["0007_visitation"]
 
     _assert_auth_schema(database_url)
     _assert_tourists_schema(database_url)
@@ -125,8 +127,10 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
         "spot_visits",
         "completion_badges",
         "redemption_codes",
+        # visitation (feature 011):
+        "visitations",
     }
-    assert versions_final == ["0006_gamification"]
+    assert versions_final == ["0007_visitation"]
 
 
 def _assert_auth_schema(database_url: str) -> None:

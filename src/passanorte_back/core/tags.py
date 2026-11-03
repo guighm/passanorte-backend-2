@@ -71,7 +71,12 @@ _DESCRIPTIONS_BY_TAG: Final[dict[str, str]] = {
     ),
     "Events": "Cultural events and schedules (events module).",
     "Gamification": "Routes, achievements and reward codes (gamification module).",
-    "Visitation": "Check-ins at tourist spots and route progress (visitation module).",
+    "Visitation": (
+        "GPS-validated check-ins at tourist spots: mark visitation "
+        "(RF31) with Haversine presence validation (RF32), the immutable "
+        "visitation ledger (RF33) and visitation history/visited-spots "
+        "projections (visitation module; feature 011)."
+    ),
     "Dashboard": "Aggregated metrics and rankings for administrators (dashboard module).",
     "Notifications": "Push notifications and communication (notifications module).",
     "Chatbot": "Generative chatbot over registered content (chatbot module).",

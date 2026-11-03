@@ -73,6 +73,7 @@ def spot_to_view(spot: TouristSpot) -> spot_schemas.SpotView:
         description=spot.description,
         latitude=spot.latitude,
         longitude=spot.longitude,
+        tolerance_radius_m=spot.tolerance_radius_m,
         status=spot.status,
         categories=[category.category_key for category in spot.categories],
         schedule=_schedule_views(spot),
@@ -173,6 +174,7 @@ def create_spot(
         latitude=payload.latitude,
         longitude=payload.longitude,
         status=status,
+        tolerance_radius_m=payload.tolerance_radius_m,
     )
     replace_categories(
         session,
@@ -249,6 +251,11 @@ def update_spot(
         changed = True
     if payload.longitude is not None:
         spot.longitude = payload.longitude
+        changed = True
+    if "tolerance_radius_m" in payload.model_fields_set:
+        # Feature 011 contract §4: absent in patch = unchanged; explicit
+        # ``toleranceRadiusM: null`` resets to the global settings default.
+        spot.tolerance_radius_m = payload.tolerance_radius_m
         changed = True
 
     if changed:
@@ -339,6 +346,7 @@ def build_public_detail(session: Session, spot: TouristSpot) -> spot_schemas.Pub
         description=spot.description,
         latitude=spot.latitude,
         longitude=spot.longitude,
+        tolerance_radius_m=spot.tolerance_radius_m,
         status=spot.status,
         categories=categories,
         schedule=_schedule_views(spot),

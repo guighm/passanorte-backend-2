@@ -76,6 +76,9 @@ def db_engine():
         TouristInterest,
     )
     from passanorte_back.modules.tourists.repositories.tourists import Tourist  # noqa: F401
+    from passanorte_back.modules.visitation.repositories.visitations import (  # noqa: F401
+        Visitation,
+    )
 
     engine = create_engine(
         TEST_DATABASE_URL,

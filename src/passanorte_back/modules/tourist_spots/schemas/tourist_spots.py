@@ -49,6 +49,9 @@ SpotName = Annotated[str, Field(min_length=1, max_length=200)]
 SpotDescription = Annotated[str, Field(min_length=1, max_length=2000)]
 Latitude = Annotated[float, Field(ge=-90.0, le=90.0)]
 Longitude = Annotated[float, Field(ge=-180.0, le=180.0)]
+# Per-spot override of the presence radius (feature 011, data-model.md §2):
+# meters, positive when present; ``None`` → global settings default.
+ToleranceRadius = Annotated[float, Field(gt=0.0)]
 
 
 class SpotScheduleEntryInput(ApiModel):
@@ -111,6 +114,9 @@ class SpotCreateRequest(ApiModel):
     latitude: Latitude
     longitude: Longitude
     status: SpotStatus | None = None  # omitted ⇒ "open" at the service (FR-008)
+    # Feature 011: omitted/None ⇒ the global settings default (100 m);
+    # positive float overrides the presence radius for this spot alone.
+    tolerance_radius_m: ToleranceRadius | None = None
     categories: Annotated[list[str], Field(min_length=1)]
     schedule: Annotated[list[SpotScheduleEntryInput], Field(min_length=1)]
 
@@ -123,6 +129,9 @@ class SpotUpdateRequest(ApiModel):
     latitude: Latitude | None = None
     longitude: Longitude | None = None
     status: SpotStatus | None = None
+    # Feature 011: absent in patch = unchanged; explicit ``toleranceRadiusM:
+    # null`` resets to the global default (feature 011 contract §4).
+    tolerance_radius_m: ToleranceRadius | None = None
     categories: Annotated[list[str], Field(min_length=1)] | None = None
     schedule: Annotated[list[SpotScheduleEntryInput], Field(min_length=1)] | None = None
 
@@ -135,6 +144,7 @@ class SpotView(ApiModel):
     description: str
     latitude: float
     longitude: float
+    tolerance_radius_m: float | None = None
     status: str
     categories: list[str]
     schedule: list[SpotScheduleEntryView]
@@ -163,6 +173,7 @@ class PublicSpotDetailView(ApiModel):
     description: str
     latitude: float
     longitude: float
+    tolerance_radius_m: float | None = None
     status: str
     categories: list[CategoryView]
     schedule: list[SpotScheduleEntryView]
