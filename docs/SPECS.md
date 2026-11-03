@@ -33,6 +33,7 @@
 | 013 | Dashboard e Insights | `dashboard` | RF06–RF10 | — |
 | 014 | Notificações por Interesse | `notifications` | RF37 | — |
 | 015 | Chatbot de Planejamento (RAG) | `chatbot` | RF38, RF39 | — |
+| 016 | Portas dos Serviços Configuráveis no Compose | infra (Docker/Compose) | — (transversal, ambiente de dev) | — |
 
 > `*` RNF01/RNF02/RNF07 (sistema distribuído/microsserviços): **deliberadamente
 > adaptados** nesta fase. Ver `docs/CONSTITUTION.md` — o monolito modular
@@ -360,6 +361,42 @@ similaridade + filtros estruturados); limite de contexto e custo por sessão.
 
 ```text
 Implementar Chatbot de Planejamento de Roteiro do PassaNorte (backend FastAPI, módulo chatbot), IA generativa com RAG (RF38/RF39), autenticado como turista. Requisitos: RF38 — chatbot em conversa de linguagem natural monta roteiros personalizados com base nos pontos turísticos e eventos cadastrados no banco (fonte de verdade), e devolve roteiro estruturado (lista ordenada de pontos/eventos com horários sugeridos e custo total estimado) que pode ser visualizado no Passaporte; RF39 — o roteiro considera: custo dos ingressos (preço dos eventos), proximidade geográfica entre pontos (ordenação por rota razoável, Haversine entre consecutivos), interesses do usuário (priorização de categorias) e horários de funcionamento (não sugerir ponto fechado no horário). Arquitetura: RAG sobre a base cadastrada — dados de pontos/eventos persistidos são indexados (recuperação por similaridade semântica + filtros estruturados em SQL); o LLM só recebe contexto recuperado, nunca inventa pontos/eventos; sessões de chat persistidas com histórico do turista. Provedor de LLM com free tier (RNF15), chave via variáveis de ambiente, sem chave no repositório; comportamento degradado documentado se provedor indisponível. RNF06 — sem hardcode de localidade. Todos os endpoints deste módulo agrupados sob a tag "Chatbot" do registro central de tags da spec 006. Critério de aceitação: teste do pipeline de recuperação (query relevante retorna pontos certos da base de teste); teste de constraint que roteiro referenciado contém apenas pontos/eventos existentes no banco, respeitando horário de funcionamento e soma de ingressos esperada; teste de integração de sessão (histórico persiste entre mensagens). Mockar provedor de LLM nos testes; sem chamada externa real em suite de CI.
+```
+
+---
+
+## 016 — Portas dos Serviços Configuráveis no Compose
+
+**Escopo:** todos os serviços do `compose.yaml` (spec 004) têm porta padrão,
+configurável pelo desenvolvedor via `.env`/`.env.example`, no formato
+`${VAR:-default}` — com as variáveis documentadas no `.env.example` (valores
+não-secretos cometidos) e espelhadas no `.env` local:
+
+- **`api` — porta configurável end-to-end:** `API_PORT` (padrão `8000`) define
+  a porta em que o uvicorn **escuta dentro do container** *e* a exposta no
+  host: mapeamento `"${API_PORT:-8000}:${API_PORT:-8000}"` e
+  `command: uvicorn passanorte_back.main:app --host 0.0.0.0 --port
+  ${API_PORT:-8000} --reload`. Mudar `API_PORT` muda a porta real da API, não
+  só o redirecionamento (`EXPOSE` no Dockerfile é apenas documentação e não
+  precisa mudar).
+- **`db` — porta de host configurável:** hoje sem mapeamento; passa a expor
+  `"${POSTGRES_PORT:-5432}:5432"` (acesso para psql/IDE na máquina host).
+- **`dbgate` — porta de host configurável:** `"${DBGATE_PORT:-8080}:3000"`
+  (já existente; formalizada).
+
+As portas **internas** de `db` (5432) e `dbgate` (3000) permanecem fixas: a
+comunicação entre serviços (`DATABASE_URL` do `api`, conexão
+pré-configurada do DbGate) sempre usa a rede interna do Compose, nunca a
+porta de host — mudar as variáveis afeta apenas o acesso a partir da máquina
+host (psql, IDE, navegador).
+
+**Fora de escopo:** portas internas de `db` e `dbgate`; TLS/reverse proxy;
+configuração de produção/CI.
+
+### Prompt
+
+```text
+Ajustar o ambiente Docker Compose do PassaNorte (spec 004) para que TODOS os serviços tenham porta padrão configurável via .env, no formato ${VAR:-default} no compose.yaml, com as variáveis (POSTGRES_PORT, API_PORT, DBGATE_PORT) documentadas no .env.example (valores não-secretos cometidos) e espelhadas no .env local (git-ignored). Detalhes: (a) api — porta configurável END-TO-END: API_PORT (padrão 8000) define a porta em que o uvicorn ESCUTA DENTRO do container e a exposta no host — mapeamento "${API_PORT:-8000}:${API_PORT:-8000}" e command "uvicorn passanorte_back.main:app --host 0.0.0.0 --port ${API_PORT:-8000} --reload"; mudar API_PORT muda a porta REAL da API, não só o redirecionamento (EXPOSE no Dockerfile é documentação e não precisa mudar); (b) db — hoje sem mapeamento de host: passar a expor "${POSTGRES_PORT:-5432}:5432" (acesso para psql/IDE na máquina host); (c) dbgate — manter "${DBGATE_PORT:-8080}:3000", apenas formalizada. As portas INTERNAS de db (5432) e dbgate (3000) permanecem fixas: a comunicação entre serviços (DATABASE_URL do api, conexão pré-configurada do DbGate) sempre usa a rede interna do Compose (host db, porta 5432), nunca a porta de host — mudar as variáveis afeta apenas o acesso a partir da máquina host (psql, IDE, navegador). Sem segredos no repositório e sem alterar Dockerfile, entrypoint, lógica de negócio ou fronteiras de domínio (specs 001-003). Critério de aceitação: docker compose up sobe os três serviços com as portas padrão (8000, 8080, 5432); alterar API_PORT para outro valor (ex.: 9000) no .env e reiniciar faz o uvicorn escutar em 9000 dentro do container e a API responder em localhost:9000; alterar DBGATE_PORT/POSTGRES_PORT mapeia as novas portas de host sem tocar nas internas; a conexão do DbGate e o DATABASE_URL continuam funcionando independente das portas escolhidas.
 ```
 
 ---
