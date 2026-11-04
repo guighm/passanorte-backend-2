@@ -188,10 +188,12 @@ class RedemptionCreateRequest(ApiModel):
 
 
 class RedemptionPrizeView(ApiModel):
-    """Prize reference inside a concession record."""
+    """Prize reference inside a concession record, with the post-deduction
+    stock (RF21/FR-004) — mirrors RoutePrizeView's shape."""
 
     id: int
     name: str
+    stock_quantity: StockQuantity
 
 
 class RedemptionView(ApiModel):

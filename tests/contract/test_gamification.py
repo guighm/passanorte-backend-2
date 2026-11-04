@@ -559,6 +559,197 @@ def test_issued_code_value_is_stable_across_reads(
 # ---------------------------------------------------------------------------
 
 REDEMPTION_KEYS = {"code", "prize", "routeId", "touristId", "pickupSpotId", "concededBy", "usedAt"}
+REDEMPTION_PRIZE_KEYS = {"id", "name", "stockQuantity"}
+
+
+def test_concession_audit_record_carries_stock_before_and_after(
+    client: TestClient, seeded_admin: int, seeded_employee: int, sessionfactory_for, audit_logs
+) -> None:
+    """RF21/FR-007 (RNF19): one audit record per granted concession inside
+    the granting transaction, naming the staff actor, tourist, prize
+    (route-bound), pickup spot and the stock before/after the deduction."""
+    route, code, pickup = _completed_with_code(client, sessionfactory_for, initial_stock=4)
+    concede = client.post(
+        f"{GAMIFICATION_URL}/redemptions",
+        json={"code": code, "spotId": pickup},
+        headers=_employee_headers(client),
+    )
+    assert concede.status_code == 201, concede.text
+    records = [
+        record
+        for record in audit_logs.records
+        if '"action": "prize.concede"' in record.getMessage()
+    ]
+    assert len(records) == 1  # exactly one record for the granted concession
+    message = records[0].getMessage()
+    assert '"result": "success"' in message
+    assert "maria.panel" in message  # staff actor
+    assert f'"target": "code:{code}"' in message
+    assert f'"touristId": {concede.json()["touristId"]}' in message
+    assert f'"prizeId": {route["prize"]["id"]}' in message
+    assert f'"routeId": {route["id"]}' in message
+    assert f'"pickupSpotId": {pickup}' in message
+    assert '"stockQuantityBefore": 4' in message
+    assert '"stockQuantityAfter": 3' in message
+
+
+def test_concession_failures_emit_no_audit_record(
+    client: TestClient, seeded_admin: int, seeded_employee: int, sessionfactory_for, audit_logs
+) -> None:
+    """RF21/FR-007 (v1 decision — Clarifications): failed redemption attempts
+    produce no audit record of any kind."""
+    route, code, pickup = _completed_with_code(client, sessionfactory_for, initial_stock=1)
+    staff = _employee_headers(client)
+
+    def concede_records() -> int:
+        return len(
+            [
+                record
+                for record in audit_logs.records
+                if '"action": "prize.concede"' in record.getMessage()
+            ]
+        )
+
+    baseline = concede_records()
+    for payload in [
+        {"code": "zzzzzzzzzzzz", "spotId": pickup},  # unknown code → 404
+        {"code": code, "spotId": 424242},  # unknown spot → 404
+        {"code": code, "spotId": ""},  # shape → 422
+    ]:
+        attempt = client.post(f"{GAMIFICATION_URL}/redemptions", json=payload, headers=staff)
+        assert attempt.status_code in (404, 422), attempt.text
+        assert concede_records() == baseline  # no record, ever
+    # zero-stock block on a fresh code → 409, still no record
+    other_route, other_code, other_pickup = _completed_with_code(
+        client, sessionfactory_for, initial_stock=0
+    )
+    blocked = client.post(
+        f"{GAMIFICATION_URL}/redemptions",
+        json={"code": other_code, "spotId": other_pickup},
+        headers=staff,
+    )
+    assert blocked.status_code == 409, blocked.text
+    assert concede_records() == baseline
+
+
+def test_concession_201_response_carries_new_stock(
+    client: TestClient, seeded_admin: int, seeded_employee: int, sessionfactory_for
+) -> None:
+    """RF21/FR-004: the 201 response exposes the prize's post-deduction
+    stock (exactly one unit lower than before the concession)."""
+    route, code, pickup = _completed_with_code(client, sessionfactory_for, initial_stock=7)
+    before = client.get(
+        f"{GAMIFICATION_URL}/routes/{route['id']}", headers=_admin_headers(client)
+    ).json()["prize"]["stockQuantity"]
+    response = client.post(
+        f"{GAMIFICATION_URL}/redemptions",
+        json={"code": code, "spotId": pickup},
+        headers=_employee_headers(client),
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert set(body) == REDEMPTION_KEYS
+    assert set(body["prize"]) == REDEMPTION_PRIZE_KEYS
+    assert body["prize"]["stockQuantity"] == before - 1  # exactly one unit deducted
+    # the stored prize really holds the deducted value now
+    stored = client.get(
+        f"{GAMIFICATION_URL}/routes/{route['id']}", headers=_admin_headers(client)
+    ).json()["prize"]["stockQuantity"]
+    assert stored == body["prize"]["stockQuantity"]
+
+
+def test_concession_conflict_messages_are_distinct(
+    client: TestClient, seeded_admin: int, seeded_employee: int, sessionfactory_for
+) -> None:
+    """RF21/FR-005: each 409 cause carries its own canonical message —
+    already used vs no stock available for this route's prize."""
+    route, code, pickup = _completed_with_code(client, sessionfactory_for, initial_stock=1)
+    staff = _employee_headers(client)
+    # grant the concession once: the code is now used
+    granted = client.post(
+        f"{GAMIFICATION_URL}/redemptions",
+        json={"code": code, "spotId": pickup},
+        headers=staff,
+    )
+    assert granted.status_code == 201, granted.text
+    depleted = client.post(
+        f"{GAMIFICATION_URL}/redemptions",
+        json={"code": "3f9a2c81e7d4", "spotId": pickup},
+        headers=staff,
+    )
+    assert depleted.status_code == 404, depleted.text
+    # force a no-stock conflict on a FRESH valid code: complete another
+    # tourist's enrollment on a zero-stock route
+    second_route, second_code, second_pickup = _completed_with_code(
+        client, sessionfactory_for, initial_stock=0
+    )
+    no_stock = client.post(
+        f"{GAMIFICATION_URL}/redemptions",
+        json={"code": second_code, "spotId": second_pickup},
+        headers=staff,
+    )
+    assert no_stock.status_code == 409, no_stock.text
+    used_again = client.post(
+        f"{GAMIFICATION_URL}/redemptions",
+        json={"code": code, "spotId": pickup},
+        headers=staff,
+    )
+    assert used_again.status_code == 409, used_again.text
+    _assert_api_error(no_stock, "conflict")
+    _assert_api_error(used_again, "conflict")
+    assert no_stock.json()["message"] == "no stock available for this route's prize"
+    assert used_again.json()["message"] == "redemption code has already been used"
+    assert no_stock.json()["message"] != used_again.json()["message"]
+
+
+def test_concession_repeated_scans_never_double_deduct(
+    client: TestClient, seeded_admin: int, seeded_employee: int, sessionfactory_for
+) -> None:
+    """RF21/FR-003/FR-006: repeating or rescanning a code can never produce
+    a second deduction; the recovery path (replenish → rescan 201) holds."""
+    route, code, pickup = _completed_with_code(client, sessionfactory_for, initial_stock=2)
+    staff = _employee_headers(client)
+    first = client.post(
+        f"{GAMIFICATION_URL}/redemptions",
+        json={"code": code, "spotId": pickup},
+        headers=staff,
+    )
+    assert first.status_code == 201, first.text
+    for _ in range(3):
+        retry = client.post(
+            f"{GAMIFICATION_URL}/redemptions",
+            json={"code": code, "spotId": pickup},
+            headers=staff,
+        )
+        assert retry.status_code == 409, retry.text
+    stored = client.get(
+        f"{GAMIFICATION_URL}/routes/{route['id']}", headers=_admin_headers(client)
+    ).json()["prize"]["stockQuantity"]
+    assert stored == 1  # stock constant — one deduction, never two
+    # recovery path: replenish and rescan a fresh valid code after a
+    # zero-stock block (FR-006 — code stays reusable)
+    other_route, other_code, other_pickup = _completed_with_code(
+        client, sessionfactory_for, initial_stock=0
+    )
+    blocked = client.post(
+        f"{GAMIFICATION_URL}/redemptions",
+        json={"code": other_code, "spotId": other_pickup},
+        headers=staff,
+    )
+    assert blocked.status_code == 409, blocked.text
+    replenished = client.patch(
+        f"{GAMIFICATION_URL}/prizes/{other_route['prize']['id']}",
+        json={"stockQuantity": 3},
+        headers=_admin_headers(client),
+    )
+    assert replenished.status_code == 200, replenished.text
+    rescan = client.post(
+        f"{GAMIFICATION_URL}/redemptions",
+        json={"code": other_code, "spotId": other_pickup},
+        headers=staff,
+    )
+    assert rescan.status_code == 201, rescan.text
+    assert rescan.json()["prize"]["stockQuantity"] == 2
 
 
 def _completed_with_code(

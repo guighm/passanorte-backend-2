@@ -139,7 +139,7 @@ def _redemption_code_of(client: TestClient, enrollment_id: int, headers: dict[st
 
 
 def test_full_acceptance_journey_sc007(
-    client: TestClient, seeded_admin: int, seeded_employee: int, sessionfactory_for
+    client: TestClient, seeded_admin: int, seeded_employee: int, sessionfactory_for, audit_logs
 ) -> None:
     """SC-007: enroll → visit all → badge → unique code → refused reuse."""
     _admin_headers(client)
@@ -173,6 +173,20 @@ def test_full_acceptance_journey_sc007(
     )
     assert concession.status_code == 201, concession.text
     assert concession.json()["prize"]["name"] == "Caneca do Festival"
+    assert concession.json()["prize"]["stockQuantity"] == 0  # 1 initial - 1 deduction
+    # RF21/FR-007 (RNF19): the granting transaction emits exactly one audit
+    # record with the actors and the stock before/after (1 → 0 here)
+    concede_records = [
+        record
+        for record in audit_logs.records
+        if '"action": "prize.concede"' in record.getMessage()
+    ]
+    assert len(concede_records) == 1
+    audit_message = concede_records[0].getMessage()
+    assert '"stockQuantityBefore": 1' in audit_message
+    assert '"stockQuantityAfter": 0' in audit_message
+    assert f'"touristId": {tourist_id}' in audit_message
+    assert f'"prizeId": {route["prize"]["id"]}' in audit_message
 
     reused = client.post(
         f"{GAMIFICATION_URL}/redemptions",
@@ -186,6 +200,58 @@ def test_full_acceptance_journey_sc007(
 def _tourist_login_token(client: TestClient, email: str) -> str:  # noqa: ANN001
     login = client.post(TOURIST_LOGIN, json={"email": email, "password": TOURIST_PASSWORD})
     return login.json()["accessToken"]
+
+
+def test_concession_single_use_claim_guard_refuses_second_claim(
+    client: TestClient, seeded_admin: int, seeded_employee: int, sessionfactory_for
+) -> None:
+    """RF21/FR-003: the single-use claim is a conditional UPDATE — it flips
+    a code exactly once and REFUSES a second claim on the committed-used
+    row (rowcount 0). This is the race primitive the HTTP layer rides on:
+    racing scans of the same code reduce to exactly one winning claim
+    (deterministic harness proof — the SQLite StaticPool test engine
+    shares one connection, so a true threaded HTTP race cannot be
+    simulated reliably here; production PostgreSQL gives each request its
+    own connection, where this conditional-claim guard is the exact
+    arbitration)."""
+    spot_ids = [_create_spot(client, f"Mirante claim {n}") for n in range(1, 2)]
+    route = _create_route(client, spot_ids=spot_ids, stock=3, name="Rota Claim")
+
+    email = _register_tourist(client)
+    tourist_id = _get_tourist_id_by_email(sessionfactory_for, email)
+    headers = {"Authorization": f"Bearer {_tourist_login_token(client, email)}"}
+    enrollment = _enroll(client, route["id"], headers)
+    _visit_all(sessionfactory_for, tourist_id, spot_ids)
+    code = _redemption_code_of(client, enrollment["id"], headers)
+
+    from passanorte_back.modules.gamification.repositories import (
+        gamification as gamification_repositories,
+    )
+
+    # rival claim wins the race first (committed 'used')
+    staff = _employee_headers(client)
+    granted = client.post(
+        f"{GAMIFICATION_URL}/redemptions",
+        json={"code": code, "spotId": spot_ids[0]},
+        headers=staff,
+    )
+    assert granted.status_code == 201, granted.text
+
+    with sessionfactory_for() as session:
+        code_row = gamification_repositories.find_code_by_value(session, code)
+        assert code_row is not None and code_row.status == "used"
+        code_id = code_row.id
+        # second racer arrives late: the conditional claim refuses (rowcount 0)
+        lost = gamification_repositories.claim_redemption_code(
+            session, code_id, pickup_spot_id=spot_ids[0], conceded_by="maria.panel"
+        )
+        session.rollback()  # nothing written — the guard rejected the claim
+        assert lost == 0
+    # the concession stands untouched: one unit consumed, prize data intact
+    remaining_stock = client.get(
+        f"{GAMIFICATION_URL}/routes/{route['id']}", headers=_admin_headers(client)
+    ).json()["prize"]["stockQuantity"]
+    assert remaining_stock == 2  # 3 initial - exactly ONE deduction
 
 
 def test_insufficient_stock_blocks_concession_code_stays_valid(

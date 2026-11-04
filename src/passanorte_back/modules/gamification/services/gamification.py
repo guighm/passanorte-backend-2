@@ -9,6 +9,8 @@ writes never exist outside this module's own tables.
 This foundational slice (T005) holds the domain exceptions (route-mapped per
 contracts §6) and the redemption-code primitive (research R5). The flows are
 implemented per user story (T007 US1, T012 US2, T017 US3, T022 US4).
+Feature 012 (RF21) enriches ``concede_prize`` with the audit pairing of the
+prize stock before/after the guarded deduction — same transaction, RNF19.
 """
 
 import secrets
@@ -577,9 +579,11 @@ def adjust_prize_stock(
 
 def concede_prize(session: Session, *, actor: str, code: str, spot_id: int):
     """Register the physical prize concession against a single-use code
-    (RF36/Q3): the stock guard runs FIRST (rowcount 0 → insufficient);
+    (RF21/RF36/Q3): the stock guard runs FIRST (rowcount 0 → insufficient);
     the code flips unused → used exactly once in the same transaction
-    (research R4); pickup spot must exist (Q3)."""
+    (research R4); pickup spot must exist (Q3). The audit record (RNF19)
+    names the actor, tourist, prize (route-bound), pickup spot and the
+    stock before/after the deduction — written in the same transaction."""
     code_row = gamification_repositories.find_code_by_value(session, code)
     if code_row is None:
         raise CodeMissingError("redemption code not found")
@@ -593,6 +597,11 @@ def concede_prize(session: Session, *, actor: str, code: str, spot_id: int):
     except spots_service.SpotMissingError as error:
         raise TouristSpotMissingError(f"tourist spot {spot_id} not found") from error
 
+    # read the stock BEFORE the guarded decrement for the audit pair
+    # (research R2): the rowcount == 1 below guarantees after == before - 1
+    prize = gamification_repositories.find_prize_by_id(session, code_row.prize_id)
+    assert prize is not None  # FK guarantees the prize exists
+    stock_before = prize.stock_quantity
     if gamification_repositories.try_consume_stock(session, code_row.prize_id) != 1:
         raise PrizeStockInsufficientError("insufficient stock to concede the prize")
     if (
@@ -608,6 +617,13 @@ def concede_prize(session: Session, *, actor: str, code: str, spot_id: int):
         action="prize.concede",
         target=f"code:{code_row.code}",
         result="success",
-        detail={"routeId": code_row.route_id, "pickupSpotId": spot_id},
+        detail={
+            "routeId": code_row.route_id,
+            "touristId": code_row.tourist_id,
+            "prizeId": code_row.prize_id,
+            "pickupSpotId": spot_id,
+            "stockQuantityBefore": stock_before,
+            "stockQuantityAfter": stock_before - 1,
+        },
     )
     return gamification_repositories.find_code_by_value(session, code)

@@ -4,9 +4,11 @@ Mounted on the canonical router (``MODULE_ROUTERS["gamification"]``, prefix
 ``/api/v1/gamification``). Tags come exclusively from the central registry
 via ``core/routers.py`` — no tag strings here (feature 006). Management is
 admin-only (``require_admin``, FR-013); tourist self-service is
-tourist-only (``require_tourist``); concession is staff-gated (US4). Built
-up per user story (T008 US1 route management; T013 US2 enrollment/
-progress; T023 US4 stock + concession). Failures go through
+tourist-only (``require_tourist``); concession is staff-gated (US4).
+Feature 012 (RF21) hardens the redemption contract: the 201 response
+carries the prize's post-deduction stock, the two 409 causes answer with
+distinct canonical messages (already-used vs no-stock) and the failure
+paths never alter state. Failures go through
 ``HTTPException`` → unified ``ApiError`` (401/403/404/409/422), mirroring
 the ``events`` module handler style.
 """
@@ -279,16 +281,25 @@ def post_redemption(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="redemption code or tourist spot not found",
         ) from None
-    except (CodeAlreadyUsedError, PrizeStockInsufficientError):
+    except CodeAlreadyUsedError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="redemption code already used or insufficient stock",
+            detail="redemption code has already been used",
+        ) from None
+    except PrizeStockInsufficientError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="no stock available for this route's prize",
         ) from None
     prize = find_prize_by_id(session, concession.prize_id)
     assert prize is not None  # FK guarantees the prize exists
     return gamification_schemas.RedemptionView.from_internal(
         code=concession.code,
-        prize={"id": prize.id, "name": prize.name},
+        prize=gamification_schemas.RedemptionPrizeView.from_internal(
+            id=prize.id,
+            name=prize.name,
+            stock_quantity=prize.stock_quantity,  # post-deduction (RF21/FR-004)
+        ),
         route_id=concession.route_id,
         tourist_id=concession.tourist_id,
         pickup_spot_id=concession.pickup_spot_id,
