@@ -43,6 +43,19 @@ def get_tourist_interests(session: Session, tourist_id: int) -> TouristInterests
     return TouristInterestsResponse(interests=selected)
 
 
+def list_tourist_interest_keys(session: Session, tourist_id: int) -> list[str]:
+    """Raw selected interest keys for cross-module consumers (feature 013
+    research R5 — explicit public read seam for the discovery score).
+
+    Unlike ``get_tourist_interests`` this list is NOT filtered by the
+    currently configured catalog: discovery matches spot categories against
+    the tourist's own stored selection, and an orphan stored key can never
+    match a spot's configured one. Returns ``[]`` for a tourist with no
+    selection — never an error.
+    """
+    return list_for_tourist(session, tourist_id)
+
+
 def update_tourist_interests(
     session: Session, *, tourist_id: int, interests: list[str], actor: str
 ) -> TouristInterestsResponse:

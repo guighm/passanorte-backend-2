@@ -114,9 +114,7 @@ def mark_visitation(
     )
 
 
-def _update_routes(
-    session: Session, *, tourist_id: int, tourist_spot_id: int
-) -> list:
+def _update_routes(session: Session, *, tourist_id: int, tourist_spot_id: int) -> list:
     """RF34 through the owner module's public seam (research R3) — the ONLY
     gamification touchpoint of this module; never its tables."""
     try:

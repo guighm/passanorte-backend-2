@@ -44,6 +44,14 @@ smoke varre o código por AST e quebra o build em qualquer import ilícito.
 | `ADMIN_USERNAME` | **sim** (script) | — | Usuário do bootstrap administrativo (`create-admin`) |
 | `ADMIN_PASSWORD` | **sim** (script) | — | Senha do bootstrap administrativo (env-only — RF01) |
 | `GPS_TOLERANCE_RADIUS_M` | não | `100.0` | Raio de presença (m), > 0 |
+| `DISCOVERY_W_PROXIMITY` | não | `0.5` | Peso da proximidade no score de relevância (feature 013), > 0 |
+| `DISCOVERY_W_INTEREST` | não | `0.35` | Peso do match de interesses (feature 013), > 0 |
+| `DISCOVERY_W_EVENT` | não | `0.15` | Peso do boost de eventos futuros (feature 013), > 0 |
+| `DISCOVERY_MAX_DISTANCE_KM` | não | `10.0` | Saturação da proximidade (km), > 0 (feature 013) |
+| `DISCOVERY_EVENT_WINDOW_DAYS` | não | `30` | Janela máxima do boost de eventos (dias), > 0 (feature 013) |
+| `DISCOVERY_EVENT_BOOST_MIN` | não | `0.25` | Piso do boost para eventos fora da janela, [0, 1) (feature 013) |
+| `DISCOVERY_NEUTRAL_PROXIMITY` | não | `0.5` | Fator neutro de proximidade sem posição, [0, 1] (feature 013) |
+| `DISCOVERY_MAP_PROVIDER` | não | `google_maps` | Provedor do link de mapas: `google_maps` ou `osm` (RNF18, feature 013) |
 | `CITY_NAME` | não | arquivo de localidade | Override da cidade |
 | `ENABLED_LANGUAGES` | não | arquivo de localidade | Override dos idiomas (JSON list) |
 | `LOCATION_DATA_PATH` | não | `config/location.json` | Caminho do arquivo de localidade |
@@ -220,6 +228,33 @@ Módulo `tourist_spots` sob `/api/v1/tourist-spots` (contrato completo em
    status (fechado continua visível), `events` (eventos do módulo `events`
    — coleção vazia quando o ponto não tem eventos) e `mapLink` calculado em
    tempo de leitura — Google Maps universal link, nunca armazenado.
+
+## Descoberta no Passaporte (feature 013-descoberta-passaporte)
+
+Extensão turista-exclusiva do módulo `tourist_spots` (contrato completo em
+[specs/013-descoberta-passaporte/contracts/tourist-spots-discovery.md](specs/013-descoberta-passaporte/contracts/tourist-spots-discovery.md)):
+
+1. **Feed ranqueado** (RF26) — `GET /tourist-spots/discover?latitude=&longitude=&page=&pageSize=`
+   (turista; sem posição é válido): pontos ativos ordenados por
+   `relevanceScore` (fórmula em
+   [specs/013-descoberta-passaporte/research.md §R2](specs/013-descoberta-passaporte/research.md)),
+   com desempate determinístico (`name` casefold → `id`). Fatores:
+   proximidade Haversine dominante, match de interesses, boost de evento
+   futuro mais próximo (saturação em `DISCOVERY_EVENT_WINDOW_DAYS`,
+   piso em `DISCOVERY_EVENT_BOOST_MIN`). Pontos `temporarilyClosed`
+   aparecem com status visível; `permanentlyClosed` nunca aparece;
+   orçamento RNF12: qualquer página responde < 1 s com ~1.000 pontos
+   (prova em `tests/perf/test_feed_budget.py`).
+2. **Links de navegação** (RF28/RNF18) —
+   `GET /tourist-spots/{id}/navigation-links?latitude=&longitude=`
+   (turista): `origin` (posição enviada, ou o próprio ponto como fallback
+   self-documentado) + `mapLink`, `uberLink`, `ninetyNineLink` prontos
+   para abrir — coordenadas de destino preservadas sem perda de precisão.
+   O provedor do mapa (`google_maps`/`osm`) é só configuração
+   (`DISCOVERY_MAP_PROVIDER`); Uber é universal link (`m.uber.com/ul`) e
+   99 é o scheme público do app (`99taxi://`). O detalhe público
+   (item 5 acima) ganhou os campos aditivos `uberLink` e `ninetyNineLink`
+   (origem = o próprio ponto).
 
 ## Eventos (feature 008-event-management)
 

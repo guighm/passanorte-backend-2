@@ -36,6 +36,10 @@ from passanorte_back.modules.tourist_spots.repositories.tourist_spots import (  
     replace_categories,
     replace_schedule,
 )
+from passanorte_back.modules.tourist_spots.services.navigation_links import (
+    build_ninety_nine_link,
+    build_uber_link,
+)
 
 
 class SpotMissingError(Exception):
@@ -352,4 +356,9 @@ def build_public_detail(session: Session, spot: TouristSpot) -> spot_schemas.Pub
         schedule=_schedule_views(spot),
         events=list_public_spot_events(session, spot.id),
         map_link=build_map_link(spot.latitude, spot.longitude),
+        # Feature 013 additive deep links (FR-008): no request position is
+        # available in the detail route, so the origin falls back to the
+        # spot itself (FR-010 fallback semantics).
+        uber_link=build_uber_link(spot.latitude, spot.longitude, origin=None),
+        ninety_nine_link=build_ninety_nine_link(spot.latitude, spot.longitude, origin=None),
     )

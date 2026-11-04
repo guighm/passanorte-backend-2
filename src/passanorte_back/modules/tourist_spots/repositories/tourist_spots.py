@@ -11,8 +11,8 @@ query (research R6); physical disposal is out of scope.
 from datetime import UTC, datetime
 from typing import Final
 
-from sqlalchemy import Float, ForeignKey, SmallInteger, String, Time, UniqueConstraint
-from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
+from sqlalchemy import Float, ForeignKey, Index, SmallInteger, String, Time, UniqueConstraint, text
+from sqlalchemy.orm import Mapped, Session, mapped_column, relationship, selectinload
 
 from passanorte_back.core.db import Base
 
@@ -50,6 +50,17 @@ class TouristSpot(Base):
     """A curated point of interest of the city (feature 007 data-model §1)."""
 
     __tablename__ = "tourist_spots"
+    # Feature 013 (T026): discovery candidates (research.md §R3) — partial
+    # index declared on the model so the test harness (Base.metadata) and
+    # the Alembic path (migration 0008) agree on the schema.
+    __table_args__ = (
+        Index(
+            "ix_tourist_spot_status_active",
+            "status",
+            sqlite_where=text("removed_at IS NULL"),
+            postgresql_where=text("removed_at IS NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(NAME_LENGTH))
@@ -156,6 +167,26 @@ def list_active_paged(
     total = query.count()
     items = query.order_by(TouristSpot.id).offset((page - 1) * page_size).limit(page_size).all()
     return list(items), total
+
+
+def list_discovery_candidates(session: Session) -> list[TouristSpot]:
+    """Active spots eligible for the discovery feed (feature 013, T010).
+
+    Discovery visibility (FR-007, data-model.md): removed spots invisible;
+    ``permanently_closed`` excluded; ``temporarily_closed`` INCLUDED with
+    visible status. One indexed query (partial index
+    ``ix_tourist_spot_status_active``) with categories preloaded — no N+1
+    (research.md §R3).
+    """
+    return list(
+        session.query(TouristSpot)
+        .filter(
+            TouristSpot.removed_at.is_(None),
+            TouristSpot.status != STATUS_PERMANENTLY_CLOSED,
+        )
+        .options(selectinload(TouristSpot.categories))
+        .order_by(TouristSpot.id)
+    )
 
 
 def _replace_children(

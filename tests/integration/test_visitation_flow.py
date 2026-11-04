@@ -120,7 +120,8 @@ def _login_token(client: TestClient, email: str) -> str:
 
 
 def test_mark_inside_radius_persists_immutable_record(
-    client: TestClient, sessionfactory_for  # noqa: ANN001
+    client: TestClient,
+    sessionfactory_for,  # noqa: ANN001
 ) -> None:
     with sessionfactory_for() as session:
         spot_id = _create_spot(session)  # no override ⇒ 100 m global default
@@ -157,7 +158,9 @@ def test_mark_inside_radius_persists_immutable_record(
 
 
 def test_mark_outside_radius_409_no_row_one_structured_log(
-    client: TestClient, sessionfactory_for, audit_logs  # noqa: ANN001
+    client: TestClient,
+    sessionfactory_for,
+    audit_logs,  # noqa: ANN001
 ) -> None:
     with sessionfactory_for() as session:
         spot_id = _create_spot(session, radius=25.0)  # stricter per-spot override
@@ -171,9 +174,7 @@ def test_mark_outside_radius_409_no_row_one_structured_log(
     assert response.json()["errorCode"] == "conflict"  # unified taxonomy (spec 005 §2)
 
     records = [
-        record
-        for record in audit_logs.records
-        if "outside_tolerance_radius" in record.getMessage()
+        record for record in audit_logs.records if "outside_tolerance_radius" in record.getMessage()
     ]
     assert len(records) == 1  # SC-007: one structured warning per rejection
     assert records[0].levelno == logging.WARNING
@@ -185,7 +186,8 @@ def test_mark_outside_radius_409_no_row_one_structured_log(
 
 
 def test_first_visit_advances_route_progress_and_completion_once(
-    client: TestClient, sessionfactory_for  # noqa: ANN001
+    client: TestClient,
+    sessionfactory_for,  # noqa: ANN001
 ) -> None:
     with sessionfactory_for() as session:
         tourist_id, email = _seed_tourist(session)
@@ -217,7 +219,8 @@ def test_first_visit_advances_route_progress_and_completion_once(
 
 
 def test_repeat_visit_is_recorded_but_progress_is_idempotent(
-    client: TestClient, sessionfactory_for  # noqa: ANN001
+    client: TestClient,
+    sessionfactory_for,  # noqa: ANN001
 ) -> None:
     with sessionfactory_for() as session:
         tourist_id, email = _seed_tourist(session)

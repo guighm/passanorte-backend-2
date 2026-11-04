@@ -44,6 +44,9 @@ PUBLIC_SPOT_KEYS = {
     "schedule",
     "events",
     "mapLink",
+    # Feature 013 additive deep links (FR-008; contracts §3 extension):
+    "uberLink",
+    "ninetyNineLink",
 }
 
 VALID_CREATE = {

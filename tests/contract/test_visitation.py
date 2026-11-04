@@ -55,14 +55,14 @@ _TOURIST_COUNTER = [0]
 def _valid_cpf(core: str) -> str:
     """Real CPF check digits — the tourists schema validates checksums."""
     digits = [int(char) for char in core]
-    first = sum(
-        value * weight for value, weight in zip(digits, range(10, 1, -1), strict=False)
-    ) % 11
+    first = (
+        sum(value * weight for value, weight in zip(digits, range(10, 1, -1), strict=False)) % 11
+    )
     dv1 = 0 if first < 2 else 11 - first
-    second = sum(
-        value * weight
-        for value, weight in zip([*digits, dv1], range(11, 1, -1), strict=False)
-    ) % 11
+    second = (
+        sum(value * weight for value, weight in zip([*digits, dv1], range(11, 1, -1), strict=False))
+        % 11
+    )
     dv2 = 0 if second < 2 else 11 - second
     return f"{core}{dv1}{dv2}"
 
@@ -99,9 +99,7 @@ def _tourist_headers(client: TestClient) -> dict[str, str]:
     return {"Authorization": f"Bearer {login.json()['accessToken']}"}
 
 
-def _create_spot(
-    client: TestClient, tolerance_radius_m: float | None = None
-) -> dict[str, object]:
+def _create_spot(client: TestClient, tolerance_radius_m: float | None = None) -> dict[str, object]:
     payload = {**VALID_CREATE}
     if tolerance_radius_m is not None:
         payload["toleranceRadiusM"] = tolerance_radius_m
@@ -138,9 +136,7 @@ def test_mark_inside_global_radius_returns_201_full_contract(
     assert body["visitedAt"]  # server-side timestamp present (research R8)
 
 
-def test_mark_uses_per_spot_larger_radius_override(
-    client: TestClient, seeded_admin: int
-) -> None:
+def test_mark_uses_per_spot_larger_radius_override(client: TestClient, seeded_admin: int) -> None:
     spot = _create_spot(client, tolerance_radius_m=200.0)
     headers = _tourist_headers(client)
 
@@ -245,9 +241,7 @@ def test_mark_between_global_and_per_spot_radius_is_rejected(
 # ---------------------------------------------------------------------------
 
 
-def test_history_and_visited_spots_show_full_ledger(
-    client: TestClient, seeded_admin: int
-) -> None:
+def test_history_and_visited_spots_show_full_ledger(client: TestClient, seeded_admin: int) -> None:
     spot = _create_spot(client)
     headers = _tourist_headers(client)
     url = f"{VISITATION_URL}/spots/{spot['id']}/visits"
@@ -289,9 +283,7 @@ def test_history_is_tourist_exclusive(client: TestClient, seeded_admin: int) -> 
     assert client.get(f"{VISITATION_URL}/visitations").status_code == 401
     admin = client.get(f"{VISITATION_URL}/visitations", headers=_admin_headers(client))
     assert admin.status_code == 403
-    mark = client.post(
-        f"{VISITATION_URL}/spots/1/visits", json={"latitude": 0.0, "longitude": 0.0}
-    )
+    mark = client.post(f"{VISITATION_URL}/spots/1/visits", json={"latitude": 0.0, "longitude": 0.0})
     assert mark.status_code == 401
 
 
@@ -300,9 +292,7 @@ def test_history_is_tourist_exclusive(client: TestClient, seeded_admin: int) -> 
 # ---------------------------------------------------------------------------
 
 
-def test_mark_on_nonexistent_spot_returns_404(
-    client: TestClient, seeded_admin: int
-) -> None:
+def test_mark_on_nonexistent_spot_returns_404(client: TestClient, seeded_admin: int) -> None:
     headers = _tourist_headers(client)
     response = client.post(
         f"{VISITATION_URL}/spots/999999/visits",
@@ -315,9 +305,7 @@ def test_mark_on_nonexistent_spot_returns_404(
     assert body["errorCode"] == "resource_not_found"
 
 
-def test_mark_on_removed_spot_returns_404(
-    client: TestClient, seeded_admin: int
-) -> None:
+def test_mark_on_removed_spot_returns_404(client: TestClient, seeded_admin: int) -> None:
     spot = _create_spot(client)
     removed = client.delete(f"{SPOTS_URL}/{spot['id']}", headers=_admin_headers(client))
     assert removed.status_code == 204, removed.text
@@ -361,9 +349,7 @@ def test_mark_rejects_nan_and_infinity_coordinates_422(
 # ---------------------------------------------------------------------------
 
 
-def test_ledger_exposes_no_mutative_path(
-    client: TestClient, seeded_admin: int
-) -> None:
+def test_ledger_exposes_no_mutative_path(client: TestClient, seeded_admin: int) -> None:
     spot = _create_spot(client)
     headers = _tourist_headers(client)
     marked = client.post(
@@ -387,9 +373,7 @@ def test_ledger_exposes_no_mutative_path(
         ("patch", f"{VISITATION_URL}/visitations/{record_id}"),
         ("delete", f"{VISITATION_URL}/visitations/{record_id}"),
     ):
-        response = client.request(
-            method.upper(), url, json={"latitude": 0.0}, headers=headers
-        )
+        response = client.request(method.upper(), url, json={"latitude": 0.0}, headers=headers)
         assert response.status_code in (404, 405), (method, url, response.text)
 
     # And the ledger still holds exactly the original immutable row.

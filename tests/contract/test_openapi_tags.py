@@ -176,12 +176,10 @@ class TestRegistryAlignment:
             {
                 "name": "Visitation",
                 "description": (
-
-                        "GPS-validated check-ins at tourist spots: mark visitation "
-                        "(RF31) with Haversine presence validation (RF32), the immutable "
-                        "visitation ledger (RF33) and visitation history/visited-spots "
-                        "projections (visitation module; feature 011)."
-
+                    "GPS-validated check-ins at tourist spots: mark visitation "
+                    "(RF31) with Haversine presence validation (RF32), the immutable "
+                    "visitation ledger (RF33) and visitation history/visited-spots "
+                    "projections (visitation module; feature 011)."
                 ),
             },
             {

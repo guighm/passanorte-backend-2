@@ -2,6 +2,11 @@
 
 from passanorte_back.modules.tourist_spots.schemas.tourist_spots import (
     CategoryView,
+    DiscoveryFeedItem,
+    DiscoveryFeedResponse,
+    NavigationLinksRequest,
+    NavigationLinksView,
+    NavigationOrigin,
     PublicSpotDetailView,
     SpotCreateRequest,
     SpotListResponse,
@@ -15,6 +20,11 @@ from passanorte_back.modules.tourist_spots.schemas.tourist_spots import (
 
 __all__ = [
     "CategoryView",
+    "DiscoveryFeedItem",
+    "DiscoveryFeedResponse",
+    "NavigationLinksRequest",
+    "NavigationLinksView",
+    "NavigationOrigin",
     "PublicSpotDetailView",
     "SpotCreateRequest",
     "SpotListResponse",

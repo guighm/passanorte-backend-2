@@ -251,6 +251,24 @@ def list_public_spot_events(session: Session, spot_id: int) -> list[dict[str, ob
     return [event_to_wire_dict(event) for event in events]
 
 
+def list_upcoming_event_dates(session: Session, *, from_date: date) -> list[tuple[int, date]]:
+    """Nearest future event date per spot, for the discovery feed (feature
+    013 research R5 — explicit public read seam; T005 unit contract).
+
+    One indexed query on ``occurrence_date >= from_date`` (inclusive —
+    today counts as an upcoming event), ordered ``(occurrence_date, id)``,
+    reduced to the first date per ``spot_id``. Past events never appear;
+    spots without future events never appear. Returns ``[]`` for no rows —
+    never an error.
+    """
+    events = list_events(session, start_date=from_date)
+    nearest: dict[int, date] = {}
+    for event in events:
+        if event.spot_id not in nearest:
+            nearest[event.spot_id] = event.occurrence_date
+    return sorted(nearest.items(), key=lambda pair: pair[0])
+
+
 def delete_spot_events(session: Session, spot_id: int) -> int:
     """Hard delete of a spot's events — the cascade half of research R4.
 

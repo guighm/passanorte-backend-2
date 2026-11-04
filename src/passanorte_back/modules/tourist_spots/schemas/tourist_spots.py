@@ -14,7 +14,7 @@ labels from the configured catalog (analysis U1) — administrative views
 carry the raw keys.
 """
 
-from datetime import datetime, time
+from datetime import date, datetime, time
 from enum import StrEnum
 from typing import Annotated
 
@@ -165,7 +165,9 @@ class PublicSpotDetailView(ApiModel):
     """Unauthenticated detail for the Passaporte app (RF27; contract §3).
 
     ``events`` reflects the events domain's public service result; ``mapLink``
-    is computed at read time (FR-012) and never stored.
+    is computed at read time (FR-012) and never stored. ``uberLink`` and
+    ``ninetyNineLink`` are the feature 013 additive deep links (FR-008) —
+    origin falls back to the spot's own coordinates in the detail route.
     """
 
     id: int
@@ -179,3 +181,62 @@ class PublicSpotDetailView(ApiModel):
     schedule: list[SpotScheduleEntryView]
     events: list[dict[str, object]]
     map_link: str
+    uber_link: str
+    ninety_nine_link: str
+
+
+class DiscoveryFeedItem(ApiModel):
+    """One ranked item of the discovery feed (feature 013 — FR-002/US1).
+
+    ``relevanceScore`` is the documented formula's per-item outcome (FR-002,
+    clarification session 2026-11-03) — no per-factor breakdown. Status is
+    present even for temporarily closed spots (FR-007).
+    """
+
+    id: int
+    name: str
+    description: str
+    latitude: float
+    longitude: float
+    status: str
+    categories: list[CategoryView]
+    relevance_score: float
+    upcoming_event_date: date | None = None
+    map_link: str
+
+
+class DiscoveryFeedResponse(ApiModel):
+    """Paginated discovery feed envelope (contracts §1; FR-004)."""
+
+    items: list[DiscoveryFeedItem]
+    page: int
+    page_size: int
+    total_items: int
+    total_pages: int
+
+
+class NavigationOrigin(ApiModel):
+    """Pickup coordinates actually used (feature 013 — FR-010)."""
+
+    latitude: float
+    longitude: float
+
+
+class NavigationLinksView(ApiModel):
+    """Ready-to-open navigation links for one spot (RF28 — contracts §2).
+
+    ``origin`` echoes the pickup actually used (provided position, else the
+    spot's own coordinates — the fallback is self-documenting).
+    """
+
+    origin: NavigationOrigin
+    map_link: str
+    uber_link: str
+    ninety_nine_link: str
+
+
+class NavigationLinksRequest(ApiModel):
+    """Query model for the navigation-links route (validation only)."""
+
+    latitude: Latitude | None = None
+    longitude: Longitude | None = None

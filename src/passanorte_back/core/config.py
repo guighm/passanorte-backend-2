@@ -47,6 +47,17 @@ class Settings(BaseSettings):
     jwt_ttl: int = 3600
     jwt_refresh_ttl: int = 604800
     gps_tolerance_radius_m: float = 100.0
+    # Discovery ranking policy (feature 013 — configuration, never code;
+    # constitution VI). Weights must be positive and sum to exactly 1 —
+    # validated at startup in ``_validate_discovery_weights``.
+    discovery_w_proximity: float = 0.5
+    discovery_w_interest: float = 0.35
+    discovery_w_event: float = 0.15
+    discovery_max_distance_km: float = 10.0
+    discovery_event_window_days: int = 30
+    discovery_event_boost_min: float = 0.25
+    discovery_neutral_proximity: float = 0.5
+    discovery_map_provider: str = "google_maps"
     city_name: str | None = None
     city_timezone: str | None = None
     languages: list[str] | None = Field(
@@ -70,6 +81,49 @@ class Settings(BaseSettings):
         if value <= 0:
             raise ValueError(f"'{field}' must be greater than zero (received: {value})")
         return value
+
+    @field_validator(
+        "discovery_max_distance_km",
+        "discovery_event_window_days",
+    )
+    @classmethod
+    def _reject_non_positive_discovery(
+        cls, value: int | float, info: ValidationInfo
+    ) -> int | float:
+        field = getattr(info, "field_name", "field")
+        if value <= 0:
+            raise ValueError(f"'{field}' must be greater than zero (received: {value})")
+        return value
+
+    @field_validator("discovery_event_boost_min", "discovery_neutral_proximity")
+    @classmethod
+    def _reject_out_of_range_discovery_factor(cls, value: float, info: ValidationInfo) -> float:
+        field = getattr(info, "field_name", "field")
+        if not 0 <= value <= 1:
+            raise ValueError(f"'{field}' must be between 0 and 1 inclusive (received: {value})")
+        return value
+
+    @field_validator("discovery_map_provider")
+    @classmethod
+    def _validate_map_provider(cls, value: str) -> str:
+        if value not in ("google_maps", "osm"):
+            raise ValueError("'discovery_map_provider' must be 'google_maps' or 'osm'")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_discovery_weights(self) -> "Settings":
+        """Discovery weights: each > 0 and summing to exactly 1 (feature 013)."""
+        weights = (
+            self.discovery_w_proximity,
+            self.discovery_w_interest,
+            self.discovery_w_event,
+        )
+        for weight in weights:
+            if weight <= 0:
+                raise ValueError("discovery weights must each be greater than zero")
+        if abs(sum(weights) - 1.0) > 1e-9:
+            raise ValueError(f"discovery weights must sum to 1 (received: {sum(weights)})")
+        return self
 
     @model_validator(mode="after")
     def _reject_explicitly_empty_languages(self) -> "Settings":
