@@ -209,6 +209,28 @@ def create_route(
         result="success",
         detail={"spotCount": len(payload.spots), "prizeId": prize.id},
     )
+    # Feature 015 emission (RF37): a route inherits the union of its spots'
+    # categories (Q3, research R4); no spots/categories → no emission.
+    from passanorte_back.modules.notifications.services.emission import (
+        create_interest_notification,
+    )
+    from passanorte_back.modules.tourist_spots.services.tourist_spots import (
+        categories_for_spots,
+    )
+
+    spot_ids = [entry.spot_id for entry in payload.spots]
+    categories: set[str] = set()
+    for keys in categories_for_spots(session, spot_ids=spot_ids).values():
+        categories.update(keys)
+    if categories:
+        create_interest_notification(
+            session,
+            item_type="route",
+            item_id=route.id,
+            item_name=route.name,
+            item_description=route.description,
+            category_keys=sorted(categories),
+        )
     return route
 
 

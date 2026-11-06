@@ -90,14 +90,18 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
         "visitations",
         # access events (feature 014 — dashboard):
         "access_events",
+        # notifications (feature 015):
+        "notification_subscriptions",
+        "notifications",
     }, tables_after_upgrade
-    assert versions_after_upgrade == ["0009_access_events"]
+    assert versions_after_upgrade == ["0010_notifications"]
 
     _assert_auth_schema(database_url)
     _assert_tourists_schema(database_url)
     _assert_tourist_spots_schema(database_url)
     _assert_events_schema(database_url)
     _assert_access_events_schema(database_url)
+    _assert_notifications_schema(database_url)
 
     downgrade = _alembic(database_url, "downgrade", "base")
     assert downgrade.returncode == 0, downgrade.stdout + downgrade.stderr
@@ -134,8 +138,11 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
         "visitations",
         # access events (feature 014 — dashboard):
         "access_events",
+        # notifications (feature 015):
+        "notification_subscriptions",
+        "notifications",
     }
-    assert versions_final == ["0009_access_events"]
+    assert versions_final == ["0010_notifications"]
 
 
 def _assert_auth_schema(database_url: str) -> None:
@@ -229,6 +236,50 @@ def _assert_access_events_schema(database_url: str) -> None:
         assert ("occurred_at",) in index_pairs, index_pairs
         assert ("day",) in index_pairs, index_pairs
         assert ("tourist_id", "day") in index_pairs, index_pairs
+    finally:
+        conn.close()
+
+
+def _assert_notifications_schema(database_url: str) -> None:
+    """Feature 015: subscription/notification columns + constraints."""
+    import sqlite3
+
+    path = database_url.removeprefix("sqlite:///")
+    conn = sqlite3.connect(path)
+    try:
+        subs = {
+            row[1]
+            for row in conn.execute("PRAGMA table_info(notification_subscriptions)").fetchall()
+        }
+        assert subs >= {"id", "tourist_id", "category_key", "created_at"}, subs
+        notifs = {row[1] for row in conn.execute("PRAGMA table_info(notifications)").fetchall()}
+        assert notifs >= {
+            "id",
+            "tourist_id",
+            "item_type",
+            "item_id",
+            "title",
+            "description",
+            "created_at",
+            "read_at",
+        }, notifs
+        sub_pairs = {
+            tuple(row[2] for row in conn.execute(f"PRAGMA index_info({name})").fetchall())
+            for name in (
+                row[1]
+                for row in conn.execute("PRAGMA index_list(notification_subscriptions)").fetchall()
+            )
+        }
+        assert ("tourist_id", "category_key") in sub_pairs, sub_pairs
+        assert ("category_key",) in sub_pairs, sub_pairs
+        notif_indexes = {
+            tuple(row[2] for row in conn.execute(f"PRAGMA index_info({name})").fetchall())
+            for name in (
+                row[1] for row in conn.execute("PRAGMA index_list(notifications)").fetchall()
+            )
+        }
+        assert ("tourist_id", "read_at") in notif_indexes, notif_indexes
+        assert ("tourist_id", "item_type", "item_id") in notif_indexes, notif_indexes
     finally:
         conn.close()
 

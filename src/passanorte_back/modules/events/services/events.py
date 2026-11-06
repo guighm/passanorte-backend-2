@@ -151,6 +151,24 @@ def create_event(
             "ticketPrice": str(cents_to_price(event.ticket_price_cents)),
         },
     )
+    # Feature 015 emission (RF37): an event has no categories of its own —
+    # it inherits the target spot's (research R4). Best-effort by design.
+    from passanorte_back.modules.notifications.services.emission import (
+        create_interest_notification,
+    )
+    from passanorte_back.modules.tourist_spots.services.tourist_spots import (
+        categories_for_spots,
+    )
+
+    spot_categories = categories_for_spots(session, spot_ids=[event.spot_id]).get(event.spot_id, [])
+    create_interest_notification(
+        session,
+        item_type="event",
+        item_id=event.id,
+        item_name=event.description,
+        item_description=event.description,
+        category_keys=spot_categories,
+    )
     return event
 
 

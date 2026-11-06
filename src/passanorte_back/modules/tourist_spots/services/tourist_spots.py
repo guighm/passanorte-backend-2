@@ -31,6 +31,7 @@ from passanorte_back.modules.tourist_spots.repositories.tourist_spots import (  
     WEEKDAYS,
     TouristSpot,
     add_spot,
+    category_keys_by_spot,
     find_active_by_id,
     list_active_paged,
     replace_categories,
@@ -206,6 +207,17 @@ def create_spot(
         result="success",
         detail={"status": spot.status, "categories": len(payload.categories)},
     )
+    # Feature 015 emission (RF37): only CREATION emits; the item's own
+    # validated categories are the match keys. Best-effort by seam design.
+    _create_interest_notification = _import_emission()
+    _create_interest_notification(
+        session,
+        item_type="spot",
+        item_id=spot.id,
+        item_name=spot.name,
+        item_description=spot.description,
+        category_keys=list(dict.fromkeys(payload.categories)),
+    )
     return spot
 
 
@@ -362,3 +374,18 @@ def build_public_detail(session: Session, spot: TouristSpot) -> spot_schemas.Pub
         uber_link=build_uber_link(spot.latitude, spot.longitude, origin=None),
         ninety_nine_link=build_ninety_nine_link(spot.latitude, spot.longitude, origin=None),
     )
+
+
+def categories_for_spots(session: Session, *, spot_ids: list[int]) -> dict[int, list[str]]:
+    """Public read seam (feature 015 — Q3, research R4): each spot's
+    category keys, used by event/route emission to inherit categories from
+    their constituent spots. Unknown ids are absent from the mapping."""
+    return category_keys_by_spot(session, spot_ids=spot_ids)
+
+
+def _import_emission():  # noqa: ANN202 — lazy to avoid import cycles at load
+    from passanorte_back.modules.notifications.services.emission import (
+        create_interest_notification,
+    )
+
+    return create_interest_notification

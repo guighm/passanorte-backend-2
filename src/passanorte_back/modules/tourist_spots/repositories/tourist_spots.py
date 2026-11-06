@@ -201,6 +201,26 @@ def _replace_children(
         session.add(value)
 
 
+def category_keys_by_spot(session: Session, *, spot_ids: list[int]) -> dict[int, list[str]]:
+    """Category keys per spot id (public read for feature 015 emission).
+
+    Read-only projection used by cross-module seams (constitution: services
+    are the public surface). Unknown ids are simply absent (Q3).
+    """
+    if not spot_ids:
+        return {}
+    rows = (
+        session.query(TouristSpotCategory)
+        .filter(TouristSpotCategory.spot_id.in_(spot_ids))
+        .order_by(TouristSpotCategory.spot_id, TouristSpotCategory.id)
+        .all()
+    )
+    grouped: dict[int, list[str]] = {}
+    for row in rows:
+        grouped.setdefault(row.spot_id, []).append(row.category_key)
+    return grouped
+
+
 def replace_categories(session: Session, spot: TouristSpot, keys: list[str]) -> None:
     """Replace the spot's category associations (validated keys only)."""
     _replace_children(
