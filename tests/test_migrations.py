@@ -88,13 +88,16 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
         "redemption_codes",
         # visitation (feature 011):
         "visitations",
+        # access events (feature 014 — dashboard):
+        "access_events",
     }, tables_after_upgrade
-    assert versions_after_upgrade == ["0008_spot_discovery_index"]
+    assert versions_after_upgrade == ["0009_access_events"]
 
     _assert_auth_schema(database_url)
     _assert_tourists_schema(database_url)
     _assert_tourist_spots_schema(database_url)
     _assert_events_schema(database_url)
+    _assert_access_events_schema(database_url)
 
     downgrade = _alembic(database_url, "downgrade", "base")
     assert downgrade.returncode == 0, downgrade.stdout + downgrade.stderr
@@ -129,8 +132,10 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
         "redemption_codes",
         # visitation (feature 011):
         "visitations",
+        # access events (feature 014 — dashboard):
+        "access_events",
     }
-    assert versions_final == ["0008_spot_discovery_index"]
+    assert versions_final == ["0009_access_events"]
 
 
 def _assert_auth_schema(database_url: str) -> None:
@@ -194,6 +199,36 @@ def _assert_auth_schema(database_url: str) -> None:
             if row[2]
         )
         assert has_unique_refresh_hash
+    finally:
+        conn.close()
+
+
+def _assert_access_events_schema(database_url: str) -> None:
+    """Feature 014: access_events columns + indexes (data-model.md §1)."""
+    import sqlite3
+
+    path = database_url.removeprefix("sqlite:///")
+    conn = sqlite3.connect(path)
+    try:
+        names = {row[1] for row in conn.execute("PRAGMA table_info(access_events)").fetchall()}
+        assert names >= {
+            "id",
+            "tourist_id",
+            "occurred_at",
+            "day",
+        }, names
+        # Indexes: single time columns + (tourist_id, day) composite —
+        # research R3, set-based COUNT(DISTINCT) GROUP BY day needs them.
+        index_pairs = {
+            tuple(row[2] for row in conn.execute(f"PRAGMA index_info({name})").fetchall())
+            for name in (
+                row[1] for row in conn.execute("PRAGMA index_list(access_events)").fetchall()
+            )
+        }
+        assert ("tourist_id",) in index_pairs, index_pairs
+        assert ("occurred_at",) in index_pairs, index_pairs
+        assert ("day",) in index_pairs, index_pairs
+        assert ("tourist_id", "day") in index_pairs, index_pairs
     finally:
         conn.close()
 

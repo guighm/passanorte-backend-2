@@ -4,6 +4,18 @@
   "languages": [
     "pt-BR"
   ],
+  "regions": [
+    {
+      "key": "waterfalls",
+      "label": "Cachoeiras",
+      "spots": ["Cachoeira Édem"]
+    },
+    {
+      "key": "city",
+      "label": "Centro da cidade",
+      "spots": ["Cachoeira da Saudade", "Ponte Ferroviária"]
+    }
+  ],
   "interest_categories": [
     {
       "key": "gastronomy",

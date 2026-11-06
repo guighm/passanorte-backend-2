@@ -51,9 +51,7 @@ def upgrade() -> None:
         sa.Column("latitude", sa.Float(), nullable=False),
         sa.Column("longitude", sa.Float(), nullable=False),
     )
-    op.add_column(
-        "tourist_spots", sa.Column("tolerance_radius_m", sa.Float(), nullable=True)
-    )
+    op.add_column("tourist_spots", sa.Column("tolerance_radius_m", sa.Float(), nullable=True))
 
 
 def downgrade() -> None:

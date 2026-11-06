@@ -241,6 +241,69 @@ class Settings(BaseSettings):
             ) from error
         return key
 
+    def resolved_regions(self) -> list[dict[str, Any]]:
+        """Optional heat-map region block (feature 014, RNF06 — data).
+
+        Each region carries a non-empty ``key`` (canonical identifier),
+        ``label`` (user-facing text) and ``spots`` (list of tourist-spot
+        names it groups). The block is OPTIONAL: absent → ``[]``
+        (the ``groupBy=region`` mode is then rejected by the user of this
+        data — spec FR-005). Malformed present block → structured
+        ``LocationDataError``.
+        """
+        block = self._read_location_data().get("regions")
+        if block is None:
+            return []
+        if not isinstance(block, list) or not block:
+            raise LocationDataError(
+                f"Key 'regions' must be a non-empty list of "
+                f"{{'key', 'label', 'spots'}} objects in '{self.location_data_path}'."
+            )
+        resolved: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for item in block:
+            if not isinstance(item, dict):
+                raise LocationDataError(
+                    "Each entry of 'regions' must be an object with 'key', 'label' "
+                    f"and non-empty 'spots' in '{self.location_data_path}'."
+                )
+            key = item.get("key")
+            label = item.get("label")
+            spots = item.get("spots")
+            if (
+                not isinstance(key, str)
+                or not key.strip()
+                or not isinstance(label, str)
+                or not label.strip()
+            ):
+                raise LocationDataError(
+                    "Each entry of 'regions' needs non-empty 'key' and 'label' "
+                    f"strings in '{self.location_data_path}'."
+                )
+            if (
+                not isinstance(spots, list)
+                or not spots
+                or not all(isinstance(name, str) and name.strip() for name in spots)
+            ):
+                raise LocationDataError(
+                    "Each entry of 'regions' needs a non-empty list of spot names "
+                    f"in 'spots' ('{self.location_data_path}')."
+                )
+            stripped = key.strip()
+            if stripped in seen:
+                raise LocationDataError(
+                    f"Duplicate region key '{stripped}' in '{self.location_data_path}'."
+                )
+            seen.add(stripped)
+            resolved.append(
+                {
+                    "key": stripped,
+                    "label": label.strip(),
+                    "spots": [name.strip() for name in spots],
+                }
+            )
+        return resolved
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

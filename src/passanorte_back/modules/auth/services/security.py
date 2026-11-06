@@ -184,10 +184,34 @@ def require_staff(
     return user
 
 
+def peek_tourist_token(token: str | None) -> int | None:
+    """Signature-verified tourist claim peek for the access log (feature 014).
+
+    Metrics-only identity resolution (dashboard, FR-008): verifies the JWT
+    signature and expiry but NOT the auth_sessions row — the access ledger
+    is best-effort observability (FR-022) and must not touch the
+    authentication hot path. Returns the tourist account id or ``None``
+    for missing/expired/forged tokens and staff tokens.
+    """
+    if not token:
+        return None
+    try:
+        claims = decode_access_token(token, secret=get_settings().jwt_secret)
+    except Exception:  # noqa: BLE001 — any JWT failure means "not a tourist
+        return None
+    if claims.get("account_type") != "tourist":
+        return None
+    try:
+        return int(claims["sub"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 __all__ = [
     "AuthenticatedUser",
     "get_current_user",
     "require_admin",
     "require_staff",
     "require_tourist",
+    "peek_tourist_token",
 ]

@@ -21,6 +21,9 @@ from passanorte_back.core.error_handlers import register_error_handlers
 from passanorte_back.core.routers import register_routers
 from passanorte_back.core.schemas import ApiError
 from passanorte_back.core.tags import INFRASTRUCTURE_TAG, OPENAPI_TAGS_METADATA
+from passanorte_back.modules.dashboard.services.access_recording import (
+    register_access_recording,
+)
 
 
 @asynccontextmanager
@@ -38,6 +41,7 @@ app = FastAPI(
 )
 register_routers(app)
 register_error_handlers(app)
+register_access_recording(app)  # feature 014 — best-effort access log (FR-008)
 
 
 def custom_openapi() -> dict[str, Any]:
