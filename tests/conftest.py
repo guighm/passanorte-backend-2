@@ -56,6 +56,10 @@ def db_engine():
     from passanorte_back.core.db import Base
     from passanorte_back.modules.auth.repositories.admin_users import AdminUser  # noqa: F401
     from passanorte_back.modules.auth.repositories.auth_sessions import AuthSession  # noqa: F401
+    from passanorte_back.modules.chatbot.repositories.chat import (  # noqa: F401
+        ChatMessage,
+        ChatSession,
+    )
     from passanorte_back.modules.employees.repositories.employees import Employee  # noqa: F401
     from passanorte_back.modules.events.repositories.events import Event  # noqa: F401
     from passanorte_back.modules.gamification.repositories.gamification import (  # noqa: F401

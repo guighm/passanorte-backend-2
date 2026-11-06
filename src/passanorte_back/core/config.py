@@ -65,6 +65,14 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("languages", "ENABLED_LANGUAGES"),
     )
     location_data_path: Path = Path("config/location.json")
+    # Chatbot itinerary planner (feature 016 — RNF15/RNF17, research R1/R8).
+    # All optional: an absent API key keeps the app booting in degraded mode
+    # (FR-018). Free-tier provider behind an OpenAI-compatible API.
+    chatbot_llm_api_key: str | None = None
+    chatbot_llm_base_url: str | None = None
+    chatbot_llm_model: str | None = None
+    chatbot_timeout_seconds: int = 30
+    chatbot_dwell_minutes: int = 60
 
     @field_validator("database_url", "jwt_secret", "sensitive_data_key")
     @classmethod
@@ -77,6 +85,14 @@ class Settings(BaseSettings):
     @field_validator("jwt_ttl", "jwt_refresh_ttl", "gps_tolerance_radius_m")
     @classmethod
     def _reject_non_positive(cls, value: int | float, info: ValidationInfo) -> int | float:
+        field = getattr(info, "field_name", "field")
+        if value <= 0:
+            raise ValueError(f"'{field}' must be greater than zero (received: {value})")
+        return value
+
+    @field_validator("chatbot_timeout_seconds", "chatbot_dwell_minutes")
+    @classmethod
+    def _reject_non_positive_chatbot(cls, value: int, info: ValidationInfo) -> int:
         field = getattr(info, "field_name", "field")
         if value <= 0:
             raise ValueError(f"'{field}' must be greater than zero (received: {value})")

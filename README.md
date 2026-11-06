@@ -55,6 +55,11 @@ smoke varre o código por AST e quebra o build em qualquer import ilícito.
 | `CITY_NAME` | não | arquivo de localidade | Override da cidade |
 | `ENABLED_LANGUAGES` | não | arquivo de localidade | Override dos idiomas (JSON list) |
 | `LOCATION_DATA_PATH` | não | `config/location.json` | Caminho do arquivo de localidade |
+| `CHATBOT_LLM_API_KEY` | não | — | Chave do provedor de IA do chatbot (env-only — RF38/RNF15; ausente ⇒ modo degradado) |
+| `CHATBOT_LLM_BASE_URL` | não | — | Base URL do provedor (endpoint compatível OpenAI, feature 016) |
+| `CHATBOT_LLM_MODEL` | não | — | Nome do modelo do provedor (feature 016) |
+| `CHATBOT_TIMEOUT_SECONDS` | não | `30` | Orçamento da chamada ao provedor (s); excedido ⇒ resposta degradada (FR-018) |
+| `CHATBOT_DWELL_MINUTES` | não | `60` | Duração padrão de cada parada do roteiro (min) |
 
 Sem `DATABASE_URL`, `JWT_SECRET` ou `SENSITIVE_DATA_KEY` a aplicação se recusa
 a subir, nomeando o campo ausente. Gere a chave Fernet uma única vez
@@ -255,6 +260,31 @@ Extensão turista-exclusiva do módulo `tourist_spots` (contrato completo em
    99 é o scheme público do app (`99taxi://`). O detalhe público
    (item 5 acima) ganhou os campos aditivos `uberLink` e `ninetyNineLink`
    (origem = o próprio ponto).
+
+## Chatbot de Planejamento de Roteiro (feature 016-chatbot-roteiro-rag)
+
+Módulo `chatbot` — IA generativa com RAG sobre a base cadastrada (RF38/RF39;
+contrato completo em
+[specs/016-chatbot-roteiro-rag/contracts/chatbot-api.md](specs/016-chatbot-roteiro-rag/contracts/chatbot-api.md)):
+
+1. **Sessões e conversa** (exclusivo turista): `POST /chatbot/sessions` cria
+   uma conversa; `GET /chatbot/sessions` lista as do turista; 
+   `GET /chatbot/sessions/{sessionId}` devolve o histórico persistido;
+   `POST /chatbot/sessions/{sessionId}/messages` recebe uma mensagem em
+   linguagem natural e responde com texto + roteiro estruturado (sessão
+   sem estado de encerramento — continua indefinidamente).
+2. **Roteiro com RAG** (RF38/RF39): candidatos vêm EXCLUSIVAMENTE da base
+   (leitura `sa.table()` read-only sobre pontos/eventos/interesses —
+   research.md §R5); o LLM só escolhe entre candidatos e narra; ordem de
+   rota (greedy nearest-neighbor Haversine), horários (janela de
+   funcionamento) e soma de ingressos são calculados em código, com
+   constraint FR-021 validada (`services/validator.py`).
+3. **Modo degradado** (FR-018): chave ausente (`CHATBOT_LLM_API_KEY`),
+   provedor fora/ar, timeout > `CHATBOT_TIMEOUT_SECONDS` ou saída
+   não-conforme resultam em resposta conversacional de indisponibilidade
+   com `itinerary: null` — nunca HTTP 5xx. O app sobe sem chave.
+4. **Privacidade** (FR-001): sessões pertencem ao turista; sessão de
+   outra pessoa ou inexistente responde 404 (sem enumeração).
 
 ## Eventos (feature 008-event-management)
 

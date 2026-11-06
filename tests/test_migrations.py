@@ -93,8 +93,11 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
         # notifications (feature 015):
         "notification_subscriptions",
         "notifications",
+        # chatbot (feature 016):
+        "chat_sessions",
+        "chat_messages",
     }, tables_after_upgrade
-    assert versions_after_upgrade == ["0010_notifications"]
+    assert versions_after_upgrade == ["0011_chatbot_sessions"]
 
     _assert_auth_schema(database_url)
     _assert_tourists_schema(database_url)
@@ -141,8 +144,11 @@ def test_upgrade_downgrade_reupgrade_on_empty_sqlite(tmp_path: Path) -> None:
         # notifications (feature 015):
         "notification_subscriptions",
         "notifications",
+        # chatbot (feature 016):
+        "chat_sessions",
+        "chat_messages",
     }
-    assert versions_final == ["0010_notifications"]
+    assert versions_final == ["0011_chatbot_sessions"]
 
 
 def _assert_auth_schema(database_url: str) -> None:
